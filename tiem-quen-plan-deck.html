@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Implementation plan — Tiệm Quen · Tờ Rơi 2.0</title>
+<style>
+  :root{
+    --ivory:#FAF9F5; --paper:#FFFFFF; --slate:#141413; --slate-soft:#3A3A37;
+    --muted:#6B6B66; --line:#E7E4DC; --line-soft:#F0EEE7;
+    --clay:#D97757; --clay-soft:#FBEDE7; --olive:#788C5D; --olive-soft:#EEF1E7;
+    --oat:#E3DACC; --oat-soft:#F3EFE6;
+    --sev-high:#F3D9CC; --sev-med:#EAE0CC; --sev-low:#E4E9DC;
+    --code-bg:#1F1E1B; --code-line:#2E2C28;
+    --kw:#E0A08A; --str:#A6BE83; --com:#6B6B66; --fn:#D8C99B;
+    --radius:14px; --maxw:1120px;
+    --serif:Georgia,'Times New Roman',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);
+    font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--clay);text-decoration:none} a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.86em;background:var(--line-soft);
+    padding:.1em .4em;border-radius:5px;color:var(--slate-soft)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 32px}
+
+  /* Header */
+  header.hero{border-bottom:1px solid var(--line)}
+  .hero-inner{padding:56px 0 36px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 14px}
+  h1.title{font-family:var(--serif);font-weight:600;font-size:40px;line-height:1.16;
+    margin:0 0 18px;letter-spacing:-.01em}
+  .prompt{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--clay);
+    border-radius:var(--radius);padding:16px 20px;color:var(--slate-soft);font-size:15px;margin-bottom:26px}
+  .prompt .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--clay);display:block;margin-bottom:6px}
+  /* Summary stat grid */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .stat .k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .stat .v{font-family:var(--serif);font-size:22px;font-weight:600;margin-top:6px;line-height:1.2}
+
+  /* Layout */
+  .layout{display:grid;grid-template-columns:1fr 220px;gap:56px;padding:44px 0 120px;align-items:start}
+  main{min-width:0}
+  aside{position:sticky;top:28px}
+  nav.toc{font-size:13.5px;border-left:1px solid var(--line);padding-left:18px}
+  nav.toc .toc-lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:12px}
+  nav.toc a{display:block;color:var(--slate-soft);padding:4px 0}
+  nav.toc a:hover{color:var(--clay);text-decoration:none}
+
+  /* Sections + numbered badge */
+  section{margin-bottom:52px;scroll-margin-top:24px}
+  .sec-head{display:flex;align-items:center;gap:12px;margin:0 0 16px}
+  .sec-num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--slate-soft);
+    background:var(--oat);border-radius:7px;padding:4px 9px}
+  h2.h{font-family:var(--serif);font-weight:600;font-size:26px;margin:0;letter-spacing:-.01em}
+  section p{margin:0 0 14px;color:var(--slate-soft)}
+  .lead{font-size:18px;color:var(--slate)}
+
+  /* Milestone timeline */
+  .timeline{position:relative;margin:0;padding:0}
+  .milestone{position:relative;padding:0 0 26px 34px}
+  .milestone::before{content:"";position:absolute;left:9px;top:22px;bottom:-4px;width:2px;background:var(--line)}
+  .milestone:last-child::before{display:none}
+  .dot{position:absolute;left:0;top:2px;width:20px;height:20px;border-radius:50%;
+    border:3px solid var(--clay);background:var(--ivory)}
+  .dot.done{background:var(--olive);border-color:var(--olive)}
+  .m-when{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .m-title{font-weight:600;font-size:17px;margin:2px 0 6px}
+  .tags{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--slate-soft);background:var(--oat-soft);
+    border:1px solid var(--oat);border-radius:20px;padding:2px 9px}
+
+  /* Data-flow diagram (CSS nodes + arrows; no SVG needed) */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--paper);
+    border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .node{font-family:var(--mono);font-size:12.5px;background:var(--ivory);border:1px solid var(--line);
+    border-radius:9px;padding:8px 12px;color:var(--slate)}
+  .node .sub{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+  .arrow{color:var(--muted);font-family:var(--mono)}
+  .arrow.async{color:var(--clay)}
+  .flow-note{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:10px}
+
+  /* Mockups */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .mockup{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+  .mockup .cap{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 12px}
+  .ui-row{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line-soft)}
+  .ui-row:first-of-type{border-top:none}
+  .ui-row.unread{border-left:2px solid var(--clay);padding-left:10px}
+  .avatar{flex:none;width:26px;height:26px;border-radius:50%;background:var(--oat);font-family:var(--mono);
+    font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--slate-soft)}
+  .ui-name{font-weight:600;font-size:14px} .ui-snip{font-size:13px;color:var(--muted)}
+  .ui-reply{margin-left:36px}
+  .composer{display:flex;gap:8px;margin-top:12px}
+  .composer .field{flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--muted);font-size:13px}
+  .composer .btn{background:var(--clay);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+
+  /* Code blocks */
+  pre{background:var(--code-bg);color:#E9E6DE;border-radius:10px;padding:16px 18px;overflow:auto;
+    font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:0;border:1px solid var(--code-line)}
+  pre .kw{color:var(--kw)} pre .str{color:var(--str)} pre .com{color:var(--com)} pre .fn{color:var(--fn)}
+  pre .add{color:var(--str)} pre .rem{color:var(--kw)}
+  .code-cap{font-family:var(--mono);font-size:11px;color:var(--muted);margin:0 0 8px}
+
+  /* Risks table */
+  table.risks{width:100%;border-collapse:collapse;font-size:14.5px}
+  table.risks th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);text-align:left;padding:0 12px 10px;border-bottom:1px solid var(--line)}
+  table.risks td{padding:14px 12px;border-bottom:1px solid var(--line-soft);color:var(--slate-soft);vertical-align:top}
+  .sev{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;white-space:nowrap;color:var(--slate)}
+  .sev.high{background:var(--sev-high)} .sev.med{background:var(--sev-med)} .sev.low{background:var(--sev-low)}
+
+  /* Open questions */
+  .question{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 20px;margin-bottom:12px}
+  .question .q{font-weight:600;margin:0 0 6px}
+  .question .owner{font-family:var(--mono);font-size:12px;color:var(--clay)}
+
+  footer{border-top:1px solid var(--line);color:var(--muted);font-family:var(--mono);font-size:12px;padding:22px 0 40px}
+
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr;gap:0} aside{display:none}
+    .stats{grid-template-columns:1fr 1fr} .grid2{grid-template-columns:1fr} h1.title{font-size:31px}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap hero-inner">
+    <p class="eyebrow">Implementation plan · Tiệm Quen</p>
+    <h1 class="title">Tờ Rơi 2.0 — kênh đặt hàng thường trực cho quán ăn thoát sàn</h1>
+    <div class="prompt">
+      <span class="lbl">The ask</span>
+      Biến tờ rơi giấy thành giao diện đặt hàng: khách quét QR → trang order 3 chạm, không app, không đăng nhập.
+      Backend agent + engine GenUI/A2UI tự build toàn bộ; trang khách là web tĩnh siêu nhẹ. LLM chỉ chạy lúc
+      compose — chi phí biến đổi/đơn giữ gần 0. Test giấy 3 tuần trước, đạt ngưỡng Go mới code MVP 6 tuần,
+      pilot 5 quán quanh 2–3 toà văn phòng.
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Timeline</div><div class="v">3 tuần test + 6 tuần MVP</div></div>
+      <div class="stat"><div class="k">Ngân sách 12 tháng</div><div class="v">&lt; 50 triệu VND</div></div>
+      <div class="stat"><div class="k">Pilot</div><div class="v">5 quán · 2–3 toà VP</div></div>
+      <div class="stat"><div class="k">Chi phí / đơn</div><div class="v">&lt; 100đ (mục tiêu)</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <main>
+
+    <section id="decisions">
+      <div class="sec-head"><h2 class="h">Quyết định dễ xoay chiều nhất</h2></div>
+      <p class="lead">Bốn điểm mềm nên phản biện trước khi đọc phần kế hoạch cơ khí bên dưới.</p>
+      <div class="question">
+        <p class="q">Format menu chuẩn (schema chung cho mọi nguồn import) — mọi flow phía sau đều đọc nó</p>
+        <span class="owner">Đây là data model lõi: đổi schema sau khi compose pipeline + buyer page + flyer gen đã bám vào = sửa 3 nơi · chốt trước tuần 1</span>
+      </div>
+      <div class="question">
+        <p class="q">OCR screenshot (Gemini vision) là đường import CHÍNH, không phải fallback — độ chính xác trên menu VN thực tế chưa đo</p>
+        <span class="owner">Grab đã chặn scrape (verify 07/2026); nếu OCR sai giá &gt; ~5% thì UI review/sửa giá phải gánh nặng hơn thiết kế hiện tại · blocks tuần 1</span>
+      </div>
+      <div class="question">
+        <p class="q">SMS là kênh notify chính ở pilot (~700đ/tin) — SLA số 1 phụ thuộc nhà mạng, không phụ thuộc mình</p>
+        <span class="owner">Đơn tới mà quán không biết = khách mất vĩnh viễn; delay/rớt SMS brandname VN là chuyện thường · quyết định kênh + provider trước tuần 3</span>
+      </div>
+      <div class="question">
+        <p class="q">Ngưỡng trust N lần đặt thành công để mở VietQR trả trước — chưa định giá trị</p>
+        <span class="owner">Ảnh hưởng UX thanh toán + rủi ro "trả rồi quán bùng" đổ lên brand; N nhỏ = rủi ro, N lớn = feature chết · giai đoạn 2, quyết cùng data pilot</span>
+      </div>
+    </section>
+
+    <section id="milestones">
+      <div class="sec-head"><span class="sec-num">01</span><h2 class="h">Milestones</h2></div>
+      <p>Giai đoạn 0 là gate: không đạt Go thì không viết dòng code nào. Sau Go, 6 tuần MVP tự build toàn bộ engine — mỗi tuần một lát cắt tự đứng được, tuần 6 ra pilot thật.</p>
+      <div class="timeline">
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">Giai đoạn 0 · 3 tuần · ~2 triệu VND</div>
+          <div class="m-title">Test giấy trước khi code (gate Go/Kill)</div>
+          <p>3 quán cơm quen gần 2 toà văn phòng, tờ rơi Canva + QR trỏ Google Form/Zalo, quán giảm 10% đơn trực tiếp. <strong>Go:</strong> &gt;10 đơn/tờ A4 pantry/tuần. <strong>Kill:</strong> 2–3 đơn/tuần → dừng, đỡ mất 6 tháng. Đo kèm: seller có tự cập nhật menu không.</p>
+          <div class="tags"><span class="tag">Canva + Google Form</span><span class="tag">no code</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">MVP tuần 1</div>
+          <div class="m-title">Nền: monorepo + format menu chuẩn + shop store</div>
+          <p>Chốt schema menu chuẩn (data model lõi — mọi flow phía sau đọc nó), shop store + publish per-shop slug, skeleton agent server (FastAPI). Ship được riêng: hạ tầng đứng vững, seller tạo được tiệm rỗng.</p>
+          <div class="tags"><span class="tag">monorepo</span><span class="tag">menu schema</span><span class="tag">agents/ skeleton</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">MVP tuần 2</div>
+          <div class="m-title">Import agent</div>
+          <p>OCR screenshot (đường chính, cover mọi sàn kể cả Grab) + HTML parse cho sàn nào cho phép; ảnh rehost về storage riêng; mọi nguồn đổ về cùng format menu chuẩn. UI review: sửa giá, ẩn món, thêm món "chỉ bán trực tiếp". Ship được riêng: seller đã có menu số hoá dù chưa có trang bán.</p>
+          <div class="tags"><span class="tag">agents/ import</span><span class="tag">Gemini vision OCR</span><span class="tag">tool-calling parse</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">MVP tuần 3</div>
+          <div class="m-title">Compose engine + buyer page + COD</div>
+          <p>A2UI composer tự build (JSON + component catalog thu gọn cho e-menu, racing N bản chọn 1); trang order tĩnh &lt;2s trên 4G render từ A2UI JSON compose sẵn; flow đặt hàng COD mặc định. Context rules chạy client/edge — không LLM call nào trên đường người mua. Ship được riêng: tiệm đầu tiên bán được hàng.</p>
+          <div class="tags"><span class="tag">compose/</span><span class="tag">buyer/ renderer</span><span class="tag">A2UI JSON cache</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">MVP tuần 4</div>
+          <div class="m-title">Notify pipeline + order state machine + đơn nhóm</div>
+          <p>SLA số 1: notify seller ngay — FCM push (web app), không ack 2 phút → SMS fallback; khách thấy trạng thái "quán đã thấy đơn". Order state machine, nhớ đơn cũ (localStorage), đơn nhóm share Zalo + chia tiền, Order agent parse text đơn từ chat.</p>
+          <div class="tags"><span class="tag">notify FCM+SMS</span><span class="tag">order state machine</span><span class="tag">agents/ order-parse</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">MVP tuần 5</div>
+          <div class="m-title">Gen tờ rơi 3 format + flyer analytics + seller PWA</div>
+          <p>Imagen gen nền tờ rơi, PDF chuẩn in A5/A4/sticker, QR per-batch (shop_id + batch_id) → dashboard đơn-theo-batch; seller PWA hoàn thiện (onboard + dashboard + tải tờ rơi).</p>
+          <div class="tags"><span class="tag">imagen/</span><span class="tag">QR batch registry</span><span class="tag">PDF export</span><span class="tag">seller/ PWA</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">MVP tuần 6</div>
+          <div class="m-title">Hardening → pilot 5 quán</div>
+          <p>Đo thật &lt;2s trên 4G, test notify SLA đầu-cuối. Ra pilot 5 quán quanh 2–3 toà văn phòng — đánh theo cụm, không rải mỏng. North Star: số đơn/tờ rơi/tuần theo batch.</p>
+          <div class="tags"><span class="tag">perf 4G</span><span class="tag">notify SLA e2e</span><span class="tag">pilot cụm</span></div>
+        </div>
+        <div class="milestone">
+          <span class="dot"></span>
+          <div class="m-when">Giai đoạn 2 · tuần 7–10</div>
+          <div class="m-title">Re-engage + trust payment</div>
+          <p>Zalo OA push "giờ trưa rồi, đặt lại?" · VietQR trả trước cho khách quen (opt-in theo trust) · tích điểm quán · in hộ tờ rơi · báo cáo doanh thu xuất được (feature thuế). Checkpoint 3 tháng: ≥10 quán active, không đạt → dừng/pivot.</p>
+          <div class="tags"><span class="tag">Zalo OA</span><span class="tag">VietQR generator</span><span class="tag">app Android APK</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dataflow">
+      <div class="sec-head"><span class="sec-num">02</span><h2 class="h">Data flow</h2></div>
+      <p><strong>Compose-time</strong> (có LLM, chạy khi seller thay đổi) tách hẳn khỏi <strong>đường mua</strong> (không LLM, chi phí ~0):</p>
+      <div class="flow">
+        <span class="node">Screenshot / link sàn<span class="sub">seller</span></span>
+        <span class="arrow">→</span>
+        <span class="node">Import agent<span class="sub">Gemini OCR · Python (tự build)</span></span>
+        <span class="arrow">→</span>
+        <span class="node">Format menu chuẩn<span class="sub">shop store</span></span>
+        <span class="arrow">→</span>
+        <span class="node">Storefront/Theme agent<span class="sub">compose · 1 call Gemini Flash</span></span>
+        <span class="arrow async">⇢</span>
+        <span class="node">A2UI JSON cache<span class="sub">+ asset tĩnh · per-slug</span></span>
+      </div>
+      <p class="flow-note">compose-time · seller đổi menu ~1 lần/ngày · ~200–500đ/lần · RACE chỉ bật ở đây</p>
+      <div class="flow" style="margin-top:14px">
+        <span class="node">Quét QR<span class="sub">shop_id + batch_id</span></span>
+        <span class="arrow">→</span>
+        <span class="node">Buyer page<span class="sub">static/SSR · &lt;2s 4G</span></span>
+        <span class="arrow">→</span>
+        <span class="node">Context rules<span class="sub">client/edge · không LLM</span></span>
+        <span class="arrow">→</span>
+        <span class="node">Order store<span class="sub">state machine</span></span>
+        <span class="arrow async">⇢</span>
+        <span class="node">FCM push seller<span class="sub">app seller</span></span>
+        <span class="arrow async">⇢</span>
+        <span class="node">SMS fallback<span class="sub">nếu không ack 2'</span></span>
+      </div>
+      <p class="flow-note">→ đồng bộ · ⇢ async. Agent server sập → tiệm vẫn bán được (chỉ không sửa được menu).</p>
+    </section>
+
+    <section id="mockups">
+      <div class="sec-head"><span class="sec-num">03</span><h2 class="h">Mockups</h2></div>
+      <p>Trang order đổi biến thể theo ngữ cảnh bằng rule thường — mọi biến thể đã compose sẵn, không gọi LLM lúc khách xem.</p>
+      <div class="grid2">
+        <div class="mockup">
+          <p class="cap">A · Khách cũ, giờ trưa, QR pantry văn phòng</p>
+          <div class="ui-row unread"><span class="avatar">↻</span><div><div class="ui-name">Đặt lại cơm sườn như hôm qua?</div><div class="ui-snip">35.000đ · trả khi nhận · 1 chạm</div></div></div>
+          <div class="ui-row"><span class="avatar">☀</span><div><div class="ui-name">Combo trưa văn phòng</div><div class="ui-snip">Cơm + canh + trà đá — 40.000đ (sàn: 52.000đ)</div></div></div>
+          <div class="ui-row"><span class="avatar">👥</span><div><div class="ui-name">Đặt cho cả phòng</div><div class="ui-snip">Sinh link đơn nhóm, share vào group Zalo</div></div></div>
+          <div class="composer"><div class="field">Ghi chú cho quán (ít cơm, nhiều canh…)</div><div class="btn">Đặt luôn</div></div>
+        </div>
+        <div class="mockup">
+          <p class="cap">B · Đơn nhóm — chia tiền + nhắc chuyển khoản</p>
+          <div class="ui-row"><span class="avatar">L</span><div><div class="ui-name">Linh · Cơm gà xối mỡ</div><div class="ui-snip">38.000đ · đã chuyển khoản ✓</div></div></div>
+          <div class="ui-row unread"><span class="avatar">T</span><div><div class="ui-name">Tuấn · Bún thịt nướng</div><div class="ui-snip">35.000đ · chưa chuyển — Reminder agent sẽ nhắc</div></div></div>
+          <div class="ui-row ui-reply"><span class="avatar">QR</span><div><div class="ui-name">VietQR hoàn cho người trả hộ</div><div class="ui-snip">Đúng số tiền từng người · deep-link app ngân hàng</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="code">
+      <div class="sec-head"><span class="sec-num">04</span><h2 class="h">Key code</h2></div>
+      <p>Hai chỗ pin down nguyên tắc vàng: context không LLM trên buyer page, và SLA notify quan trọng nhất hệ thống.</p>
+      <div class="grid2">
+        <div>
+          <p class="code-cap">buyer page · context rules (client/edge, không LLM)</p>
+<pre><span class="com">// QR encode shop_id + batch_id; mọi biến thể đã compose sẵn</span>
+<span class="kw">function</span> <span class="fn">pickVariant</span>(qr, now, store) {
+  <span class="kw">const</span> ui = cachedA2UI[qr.shop_id];        <span class="com">// không gọi LLM</span>
+  <span class="kw">if</span> (qr.batch.tag === <span class="str">'office'</span>) ui.<span class="fn">promote</span>(<span class="str">'group_order'</span>);
+  <span class="kw">if</span> (now.hour &gt;= 10 &amp;&amp; now.hour &lt;= 13)
+      ui.<span class="fn">reorderFirst</span>(<span class="str">'lunch_combo'</span>);  <span class="com">// reorder section</span>
+  <span class="kw">const</span> last = localStorage.<span class="fn">get</span>(<span class="str">'last_order'</span>);
+  <span class="kw">if</span> (last) ui.<span class="fn">prepend</span>(reorderCard(last)); <span class="com">// template + data cũ</span>
+  ui.<span class="fn">hideItems</span>(store.soldOut);              <span class="com">// hết món tự ẩn</span>
+  <span class="kw">return</span> ui;
+}</pre>
+        </div>
+        <div>
+          <p class="code-cap">notify pipeline · SLA số 1 (FCM → SMS fallback 2')</p>
+<pre><span class="com"># đơn tới mà quán không biết = khách mất vĩnh viễn</span>
+<span class="kw">async def</span> <span class="fn">notify_seller</span>(order):
+    <span class="kw">await</span> <span class="fn">fcm_push</span>(order.seller, order)   <span class="com"># pilot: SMS là kênh chính</span>
+    <span class="kw">await</span> <span class="fn">schedule</span>(order.id, delay=<span class="str">120</span>)   <span class="com"># chờ ack 2 phút</span>
+
+<span class="kw">async def</span> <span class="fn">on_ack_timeout</span>(order):
+    <span class="kw">if not</span> order.acked:
+        <span class="kw">await</span> <span class="fn">send_sms</span>(order.seller.phone, <span class="fn">fmt</span>(order))  <span class="com"># ~700đ</span>
+    <span class="com"># khách thấy trạng thái "quán đã thấy đơn" khi acked</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="risks">
+      <div class="sec-head"><span class="sec-num">05</span><h2 class="h">Risks &amp; mitigations</h2></div>
+      <table class="risks">
+        <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Khách nghiện voucher sàn — không đổi thói quen dù rẻ hơn (rủi ro #1)</td><td><span class="sev high">High</span></td><td>Nhắm use case lặp (cơm trưa) nơi voucher ít quyết định; giá trực tiếp + tích điểm quán. Gate test giấy đo đúng cái này trước khi code.</td></tr>
+          <tr><td>Cold-start 2 chiều: quán chờ khách, khách chờ quán</td><td><span class="sev high">High</span></td><td>Đánh theo CỤM: 1 toà văn phòng + 5 quán quanh nó cùng lúc; không rải mỏng.</td></tr>
+          <tr><td>Notify rớt/trễ (SMS nhà mạng, FCM không ack) — đơn tới quán không biết</td><td><span class="sev high">High</span></td><td>Pipeline 2 lớp FCM → SMS fallback 2'; hiển thị "quán đã thấy đơn" cho khách; pilot SMS là kênh chính, volume nhỏ chấp nhận ~800đ/đơn.</td></tr>
+          <tr><td>Sàn chặn scrape (Grab đã chặn — verify 07/2026) / vi phạm ToS</td><td><span class="sev med">Med</span></td><td>OCR screenshot là đường import chính, không phụ thuộc anti-bot; import tách khỏi serve — nguồn chết không làm chết tiệm đã publish.</td></tr>
+          <tr><td>Seller lười duy trì menu → menu sai, khách mất niềm tin</td><td><span class="sev med">Med</span></td><td>Menu sống sau QR tĩnh — sửa 1 chỗ; agent nhắc khi món liên tục hết; đo "% seller tự cập nhật menu ≥1 lần/tuần" từ test giấy.</td></tr>
+          <tr><td>Sapo/iPOS copy trong ~6 tháng</td><td><span class="sev med">Med</span></td><td>Moat = tốc độ phủ cụm văn phòng + flyer analytics + engine gen tự chủ; đua tốc độ, không đua feature.</td></tr>
+          <tr><td>Tự build toàn bộ engine → MVP dài hơn, solo dev gánh mọi module</td><td><span class="sev med">Med</span></td><td>Chấp nhận 4 → 6 tuần; compose engine cắt về tối thiểu (catalog thu gọn cho e-menu, không framework tổng quát); chốt schema menu chuẩn tuần 1 để các module song song không vỡ.</td></tr>
+          <tr><td>Giữ tiền hộ = dính giấy phép trung gian thanh toán</td><td><span class="sev med">Med</span></td><td>Không giữ tiền: COD mặc định, VietQR thẳng vào seller; escrow để giai đoạn sau khi có vốn.</td></tr>
+          <tr><td>Solo founder = single point of failure; sales từng quán không scale</td><td><span class="sev low">Low</span></td><td>Phạm vi MVP cắt tối đa; không hứa SLA doanh nghiệp ở pilot; thuê sales part-time khi có doanh thu, không thuê ai trước 20 quán trả phí.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="questions">
+      <div class="sec-head"><span class="sec-num">06</span><h2 class="h">Open questions</h2></div>
+      <div class="question">
+        <p class="q">Vùng xám giữa Go (&gt;10 đơn/tờ/tuần) và Kill (2–3 đơn/tuần): 4–9 đơn/tuần thì làm gì?</p>
+        <span class="owner">Founder quyết trước khi kết thúc test giấy — tránh tự thuyết phục "gần Go rồi" sau 3 tuần</span>
+      </div>
+      <div class="question">
+        <p class="q">Stack cụ thể cho buyer page SSR — plain HTML render từ A2UI JSON lúc compose, hay framework SSR (edge)?</p>
+        <span class="owner">Founder quyết đầu tuần 2 · ràng buộc: &lt;2s trên 4G, context rules chạy client/edge, không Flutter web</span>
+      </div>
+      <div class="question">
+        <p class="q">SMS provider nào cho pilot (brandname vs đầu số, độ trễ, ~700đ/tin) — và ai trả khi volume tăng?</p>
+        <span class="owner">Chọn + test độ trễ thực trước tuần 3 · SLA số 1 phụ thuộc câu này</span>
+      </div>
+      <div class="question">
+        <p class="q">Consent + trang chính sách dữ liệu cá nhân (Luật BVDLCN 2026) — làm ngay ở MVP hay đủ ở mức checkbox tối thiểu?</p>
+        <span class="owner">Founder quyết trước pilot tuần 4 · thu SĐT/địa chỉ khách là bắt buộc để giao hàng</span>
+      </div>
+    </section>
+
+  </main>
+
+  <aside>
+    <nav class="toc">
+      <p class="toc-lbl">On this page</p>
+      <a href="#decisions">Decisions first</a>
+      <a href="#milestones">01 · Milestones</a>
+      <a href="#dataflow">02 · Data flow</a>
+      <a href="#mockups">03 · Mockups</a>
+      <a href="#code">04 · Key code</a>
+      <a href="#risks">05 · Risks</a>
+      <a href="#questions">06 · Open questions</a>
+    </nav>
+  </aside>
+</div>
+
+<footer class="wrap">
+  Implementation plan · Tiệm Quen · 2026-07-10 · nguồn: ARCH.md
+</footer>
+
+</body>
+</html>

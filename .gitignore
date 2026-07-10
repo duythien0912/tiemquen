@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+data/media/
+.worktrees/
+node_modules/
+.DS_Store
