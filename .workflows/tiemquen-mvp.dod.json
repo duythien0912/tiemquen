@@ -1,0 +1,32 @@
+{
+  "criteria": [
+    {
+      "id": "unit-tests",
+      "text": "Full unit test suite passes (pytest, all modules: a2ui validator/repair, compose, import, order state machine, notify fallback, vietqr CRC, qr batch).",
+      "tier": "checkable",
+      "check": "./.venv/bin/python -m pytest -q"
+    },
+    {
+      "id": "e2e-mock",
+      "text": "End-to-end smoke runs WITHOUT any Gemini API key (mock mode): import fixture -> chuẩn menu -> compose valid A2UI -> cache -> place COD order -> state machine created->seller_seen->confirmed->done -> notify fallback fires -> group order split -> QR batch + VietQR payload + flyer PDF generated.",
+      "tier": "checkable",
+      "check": "env -u GEMINI_API_KEY ./.venv/bin/python scripts/e2e_smoke.py"
+    },
+    {
+      "id": "artifacts-exist",
+      "text": "Core deliverable files exist: buyer renderer, seller PWA entry, menu schema, catalog.",
+      "tier": "checkable",
+      "check": "test -f buyer/renderer.js && test -f seller/index.html && test -f shared/menu_schema.json && test -f agents/tiemquen_agent/catalogs/tiemquen_emenu_v1.json"
+    },
+    {
+      "id": "buyer-no-llm",
+      "text": "Golden rule (ARCH §5.1): no LLM call anywhere on the buyer path — buyer/ static assets and the order-serving endpoints (view menu, place order, order status) must not import or invoke google-genai or any LLM. LLM only in compose/import/flyer/order-parse (compose-time).",
+      "tier": "judged"
+    },
+    {
+      "id": "readme-accurate",
+      "text": "README quickstart is accurate: a fresh dev can create venv, install, boot the server, open the demo shop buyer page and seller dashboard by following it verbatim.",
+      "tier": "judged"
+    }
+  ]
+}
