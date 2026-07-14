@@ -10,6 +10,7 @@ Run:  ./.venv/bin/python scripts/e2e_smoke.py
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -20,7 +21,11 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import httpx  # noqa: E402
 
+from agents.tiemquen_agent import a2ui  # noqa: E402
 from agents.tiemquen_agent.server import create_app  # noqa: E402
+from compose.cache import ComposeCache  # noqa: E402
+from compose.composer import VARIANTS, compose_all_variants, is_mock_mode  # noqa: E402
+from compose.theme import derive_theme, validate_palette  # noqa: E402
 from infra.publish import SlugRegistry, slugify  # noqa: E402
 from infra.storage import LocalJSONStorage  # noqa: E402
 from shared.menu_format import load_demo_fixture, validate_menu  # noqa: E402
@@ -93,8 +98,60 @@ def main() -> int:
     asyncio.run(run_http())
 
     # ---------------------------------------------------------------------
-    # LATER PHASES: append STEP 5+ here (import agent mock, compose A2UI,
-    # order state machine, notify stub, flyer PDF, ...).
+    step(5, "Compose engine (mock mode): fixture -> 4 A2UI variants, all valid")
+    # ---------------------------------------------------------------------
+    os.environ.pop("GEMINI_API_KEY", None)  # smoke is ALWAYS mock mode, no network
+    assert is_mock_mode()
+    theme = derive_theme(fixture["shop"]["theme"]["seed_colors"])
+    assert validate_palette(theme) == [], f"palette fails WCAG: {validate_palette(theme)}"
+    ok(f"theme derived from 4 seeds, all text pairs >= 4.5 ({len(theme)} colors)")
+
+    catalog = a2ui.load_catalog()
+    variants = compose_all_variants(fixture, theme)
+    assert set(variants) == set(VARIANTS) and len(VARIANTS) == 4
+    for variant, messages in variants.items():
+        clean, warnings = a2ui.validate_and_repair(messages, catalog=catalog)
+        assert warnings == [] and clean == messages, f"{variant}: {warnings}"
+        assert "createSurface" in messages[0]
+        used = {
+            c["component"]
+            for m in messages
+            if "updateComponents" in m
+            for c in m["updateComponents"]["components"]
+        }
+        assert used <= a2ui.catalog_component_names(catalog), f"{variant}: {used}"
+    ok(f"4 variants composed + validator clean: {sorted(variants)}")
+
+    # ---------------------------------------------------------------------
+    step(6, "Compose cache: variant files land under composed/<slug>/")
+    # ---------------------------------------------------------------------
+    cache = ComposeCache(scratch / "composed")
+    slug_for_cache = fixture["shop"]["slug"]
+    cache.write_variants(slug_for_cache, variants)
+    for variant in VARIANTS:
+        path = cache.variant_path(slug_for_cache, variant)
+        assert path.is_file(), f"missing cache file {path}"
+        assert cache.read_variant(slug_for_cache, variant) == variants[variant]
+    ok(f"cache files exist: composed/{slug_for_cache}/<variant>.json x{len(VARIANTS)}")
+
+    # ---------------------------------------------------------------------
+    step(7, "Patch flow: sold_out = updateDataModel PATCH, no recompose")
+    # ---------------------------------------------------------------------
+    patch_path, patch_value = "/soldout/dish_suon_nuong", True
+    sizes_before = {v: len(variants[v]) for v in VARIANTS}
+    patched = cache.patch_data(slug_for_cache, patch_path, patch_value)
+    assert sorted(patched) == sorted(VARIANTS)
+    for variant in VARIANTS:
+        msgs = cache.read_variant(slug_for_cache, variant)
+        assert len(msgs) == sizes_before[variant] + 1, "patch must APPEND, not recompose"
+        tail = msgs[-1]["updateDataModel"]
+        assert tail["path"] == patch_path and tail["value"] is patch_value
+        assert sum(1 for m in msgs if "updateComponents" in m) == 1, "structure untouched"
+    ok(f"patch {patch_path}={patch_value} appended to all {len(patched)} cached variants")
+
+    # ---------------------------------------------------------------------
+    # LATER PHASES: append STEP 8+ here (import agent mock, order state
+    # machine, notify stub, flyer PDF, ...).
     # ---------------------------------------------------------------------
 
     print("\nSMOKE OK — all steps passed.")

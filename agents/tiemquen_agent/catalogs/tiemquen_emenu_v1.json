@@ -1,0 +1,152 @@
+{
+  "catalogId": "tiemquen_emenu_v1",
+  "description": "Component catalog cho e-menu Tiệm Quen (ENGINE-SPEC §2). Mỗi entry là JSON Schema: vừa validate compose output, vừa là tài liệu prompt cho composer. Mọi property (trừ id/component/childId/childIds) là leaf value: {\"path\": \"/x\"} bind DataModel, hoặc {\"literalString\"|\"literalNumber\"|\"literalBoolean\": ...}, hoặc event {\"event\": {\"name\", \"context\"}}.",
+  "components": {
+    "Page": {
+      "type": "object",
+      "description": "Layout gốc của surface — component có id 'root'. Chứa toàn bộ trang order sau QR, render dọc theo thứ tự children.",
+      "properties": {
+        "childIds": {
+          "type": "object",
+          "description": "Children theo thứ tự hiển thị: {\"explicitList\": [ids]} hoặc {\"dataBinding\": \"/sections\"}."
+        }
+      },
+      "required": ["childIds"]
+    },
+    "MenuSection": {
+      "type": "object",
+      "description": "Một nhóm món (vd 'Cơm tấm', 'Combo trưa'). Title + danh sách DishCard/ComboCard con.",
+      "properties": {
+        "title": {"type": "object", "description": "Tên section. Leaf string."},
+        "subtitle": {"type": "object", "description": "Mô tả phụ (tuỳ chọn). Leaf string."},
+        "childIds": {
+          "type": "object",
+          "description": "Card con: {\"explicitList\": [ids]} hoặc {\"dataBinding\": \"/sections/<id>/items\"}."
+        }
+      },
+      "required": ["title", "childIds"]
+    },
+    "HeroHeader": {
+      "type": "object",
+      "description": "Đầu trang: ảnh hero + tên tiệm + tagline. Đặt ngay đầu Page.",
+      "properties": {
+        "image": {"type": "object", "description": "URL ảnh hero (leaf string) hoặc bind /theme/hero_image."},
+        "shopName": {"type": "object", "description": "Tên tiệm. Leaf string."},
+        "tagline": {"type": "object", "description": "Tagline ngắn dưới tên tiệm. Leaf string."},
+        "hours": {"type": "object", "description": "Giờ mở cửa (tuỳ chọn). Leaf string."}
+      },
+      "required": ["shopName"]
+    },
+    "Badge": {
+      "type": "object",
+      "description": "Nhãn nhỏ (vd 'Sắp hết', 'Rẻ hơn app -12%', 'Chỉ bán tại tiệm').",
+      "properties": {
+        "text": {"type": "object", "description": "Nội dung badge. Leaf string."},
+        "kind": {"type": "object", "description": "Kiểu màu: 'info' | 'success' | 'warn'. Leaf string."}
+      },
+      "required": ["text"]
+    },
+    "DishCard": {
+      "type": "object",
+      "description": "Card 1 món: tên, giá, ảnh, cờ hết món/sắp hết, ghi chú. Giá và soldOut PHẢI bind DataModel (price -> /prices/<dish_id>, soldOut -> /soldout/<dish_id>) để patch không cần recompose. onPress bắn event add_to_cart về order API (không về LLM).",
+      "properties": {
+        "name": {"type": "object", "description": "Tên món. Leaf string."},
+        "price": {"type": "object", "description": "Giá VND. Bind: {\"path\": \"/prices/<dish_id>\"}."},
+        "comparePrice": {"type": "object", "description": "Giá trên app sàn để so (tuỳ chọn). Leaf number hoặc bind."},
+        "image": {"type": "object", "description": "URL ảnh món (tuỳ chọn). Leaf string."},
+        "soldOut": {"type": "object", "description": "Hết món -> renderer tự ẩn/mờ card. Bind: {\"path\": \"/soldout/<dish_id>\"}."},
+        "almostOut": {"type": "object", "description": "Sắp hết -> hiện badge. Bind: {\"path\": \"/almostout/<dish_id>\"}."},
+        "note": {"type": "object", "description": "Mô tả/ghi chú món. Leaf string."},
+        "onPress": {"type": "object", "description": "Event add_to_cart, context {\"dishId\": ...}."}
+      },
+      "required": ["name", "price", "onPress"]
+    },
+    "ComboCard": {
+      "type": "object",
+      "description": "Card combo — nhấn mạnh so giá với app sàn (comparePrice = giá sàn, price = giá đặt thẳng).",
+      "properties": {
+        "name": {"type": "object", "description": "Tên combo. Leaf string."},
+        "price": {"type": "object", "description": "Giá đặt thẳng. Bind /prices/<combo_id> nếu có thể."},
+        "comparePrice": {"type": "object", "description": "Giá trên app sàn (gạch ngang). Leaf number."},
+        "items": {"type": "object", "description": "Mô tả các món trong combo. Leaf string."},
+        "image": {"type": "object", "description": "URL ảnh combo (tuỳ chọn). Leaf string."},
+        "soldOut": {"type": "object", "description": "Bind /soldout/<combo_id>."},
+        "onPress": {"type": "object", "description": "Event add_to_cart, context {\"dishId\": ...}."}
+      },
+      "required": ["name", "price", "onPress"]
+    },
+    "ReorderCard": {
+      "type": "object",
+      "description": "Card 'đặt lại đơn trước' cho khách cũ — 1 chạm. Data đơn cũ bind từ localStorage qua DataModel (/reorder/*); context rules client-side quyết định prepend, KHÔNG cần LLM.",
+      "properties": {
+        "summary": {"type": "object", "description": "Tóm tắt đơn cũ (vd '2x Cơm sườn + trà đá'). Bind: /reorder/summary."},
+        "total": {"type": "object", "description": "Tổng tiền đơn cũ. Bind: /reorder/total."},
+        "onPress": {"type": "object", "description": "Event reorder, context {} (client tự đọc đơn cũ)."}
+      },
+      "required": ["summary", "onPress"]
+    },
+    "CartBar": {
+      "type": "object",
+      "description": "Thanh giỏ hàng sticky đáy màn hình: tổng tiền + số món + nút checkout. Ẩn khi giỏ trống.",
+      "properties": {
+        "total": {"type": "object", "description": "Tổng tiền giỏ. Bind: {\"path\": \"/cart/total\"}."},
+        "itemCount": {"type": "object", "description": "Số món trong giỏ. Bind: {\"path\": \"/cart/count\"}."},
+        "label": {"type": "object", "description": "Nhãn nút (vd 'Đặt món'). Leaf string."},
+        "onCheckout": {"type": "object", "description": "Event open_checkout."}
+      },
+      "required": ["total", "onCheckout"]
+    },
+    "GroupOrderButton": {
+      "type": "object",
+      "description": "Nút gom đơn nhóm văn phòng. Batch office -> đặt nổi ngay dưới HeroHeader; batch quán -> cuối trang. Không cần login: nhóm nhận diện bằng tên tự nhập.",
+      "properties": {
+        "label": {"type": "object", "description": "Nhãn nút (vd 'Gom đơn cả phòng — freeship'). Leaf string."},
+        "onPress": {"type": "object", "description": "Event start_group_order."}
+      },
+      "required": ["label", "onPress"]
+    },
+    "ReviewStrip": {
+      "type": "object",
+      "description": "Dải review/social proof ngắn (điểm + số đơn đã bán). Data bind /reviews/*.",
+      "properties": {
+        "rating": {"type": "object", "description": "Điểm trung bình (vd 4.8). Bind: /reviews/rating."},
+        "count": {"type": "object", "description": "Số review/đơn. Bind: /reviews/count."},
+        "quote": {"type": "object", "description": "1 câu review nổi bật (tuỳ chọn). Leaf string."}
+      },
+      "required": ["rating"]
+    },
+    "CheckoutForm": {
+      "type": "object",
+      "description": "Form đặt hàng: tên, SĐT, địa chỉ/toà nhà, ghi chú. onSubmit bắn event submit_order về order API. Không login — renderer tự nhớ vào localStorage.",
+      "properties": {
+        "title": {"type": "object", "description": "Tiêu đề form. Leaf string."},
+        "nameLabel": {"type": "object", "description": "Nhãn ô tên. Leaf string."},
+        "phoneLabel": {"type": "object", "description": "Nhãn ô SĐT. Leaf string."},
+        "addressLabel": {"type": "object", "description": "Nhãn ô địa chỉ/toà nhà. Leaf string."},
+        "noteLabel": {"type": "object", "description": "Nhãn ô ghi chú. Leaf string."},
+        "onSubmit": {"type": "object", "description": "Event submit_order, context {}."}
+      },
+      "required": ["onSubmit"]
+    },
+    "PaymentPicker": {
+      "type": "object",
+      "description": "Chọn cách trả tiền. COD mặc định; VietQR ẨN tới khi shop đủ trust (payment.vietqr.enabled_after_n_orders) — cờ bind /payment/vietqr_enabled.",
+      "properties": {
+        "codLabel": {"type": "object", "description": "Nhãn COD (vd 'Tiền mặt khi nhận'). Leaf string."},
+        "vietqrEnabled": {"type": "object", "description": "Hiện lựa chọn VietQR? Bind: {\"path\": \"/payment/vietqr_enabled\"}."},
+        "vietqrLabel": {"type": "object", "description": "Nhãn VietQR. Leaf string."},
+        "selected": {"type": "object", "description": "Phương thức đang chọn. Bind: /payment/selected (default 'cod')."}
+      },
+      "required": ["codLabel"]
+    },
+    "OrderStatus": {
+      "type": "object",
+      "description": "Trạng thái đơn sau khi đặt — buyer poll/SSE. Quan trọng nhất: 'quán đã thấy đơn' (state seller_seen).",
+      "properties": {
+        "status": {"type": "object", "description": "State machine hiện tại. Bind: {\"path\": \"/order/status\"}."},
+        "message": {"type": "object", "description": "Câu hiển thị cho khách (vd 'Quán đã thấy đơn 👀'). Bind: /order/message hoặc leaf string."}
+      },
+      "required": ["status"]
+    }
+  }
+}
