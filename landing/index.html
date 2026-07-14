@@ -6,385 +6,605 @@
 <title>Tiệm Quen — Tiệm quen, kêu là có.</title>
 <meta name="description" content="Biến tờ rơi giấy thành kênh đặt hàng riêng của quán: khách quét QR, đặt trong 3 chạm — không app, không đăng nhập. Miễn phí cho quán đầu tiên của bạn.">
 <style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html, body { overflow-x:hidden; }
+  html { scroll-behavior:smooth; }
   :root{
-    --kem:#FFF8F0; --giay:#FFFFFF; --than:#231F1B; --nau:#5C5148;
-    --gach:#E4572E; --gach-dam:#C7431D; --gach-nhat:#FCE9E1;
-    --la:#5E7B48; --la-nhat:#EDF2E5;
-    --vang:#F2B705; --vang-nhat:#FDF3D7;
-    --line:#EFE4D8;
+    --bg:#0D0A08; --panel:#17120F; --panel2:#1E1713;
+    --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05);
+    --gach:#E4572E; --gach-sang:#F0663C; --gach-mo:rgba(228,87,46,.14);
+    --vang:#F2B705; --la:#9BC178;
+    --trang:#F7F1EA; --xam:#C9BEB4; --xam-mo:#8F857C;
     --radius:16px; --maxw:1080px;
     --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
     --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
   }
-  *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
-  body{margin:0;background:var(--kem);color:var(--than);font-family:var(--sans);
+  body{background:var(--bg);color:var(--trang);font-family:var(--sans);
     font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
-  a{color:var(--gach);text-decoration:none}
+  a{color:var(--gach-sang);text-decoration:none}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
 
-  /* Nav */
-  nav{position:sticky;top:0;background:rgba(255,248,240,.92);backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--line);z-index:10}
-  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
-  .logo{font-weight:800;font-size:20px;letter-spacing:-.01em}
+  /* ===== Particles layer (z:3, không chặn chuột) ===== */
+  #particles-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+
+  /* ===== Nav (z:50) ===== */
+  nav{position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 40px;transition:background .3s,backdrop-filter .3s}
+  nav.scrolled{background:rgba(13,10,8,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+  .logo{font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--trang)}
   .logo .dot{color:var(--gach)}
-  .nav-links{display:flex;gap:22px;align-items:center;font-size:15px}
-  .nav-links a{color:var(--nau)}
-  .btn{display:inline-block;background:var(--gach);color:#fff;font-weight:700;
-    border-radius:12px;padding:12px 22px;font-size:16px;border:none;cursor:pointer;
-    transition:background .15s}
-  .btn:hover{background:var(--gach-dam)}
-  .btn.big{padding:16px 30px;font-size:18px}
-  .btn.ghost{background:transparent;color:var(--gach);border:2px solid var(--gach)}
+  .nav-links{display:flex;gap:24px;align-items:center;font-size:14px}
+  .nav-links a{color:var(--xam);transition:color .2s}
+  .nav-links a:hover{color:var(--trang)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--gach);color:#fff;
+    font-weight:700;border-radius:10px;padding:12px 22px;font-size:15px;border:none;
+    cursor:pointer;transition:background .2s,transform .2s}
+  .btn:hover{background:var(--gach-sang);transform:translateY(-1px)}
+  .btn.big{padding:15px 30px;font-size:17px}
+  .btn.ghost{background:transparent;color:var(--trang);border:1px solid var(--line)}
+  .btn.ghost:hover{background:rgba(255,255,255,.06)}
 
-  /* Hero */
-  .hero{padding:72px 0 56px}
-  .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
-  .kicker{display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--gach);background:var(--gach-nhat);
-    border-radius:20px;padding:5px 14px;margin-bottom:18px}
-  h1{font-size:46px;line-height:1.12;letter-spacing:-.02em;margin:0 0 18px;font-weight:800}
-  h1 em{font-style:normal;color:var(--gach)}
-  .sub{font-size:19px;color:var(--nau);margin:0 0 28px;max-width:34em}
-  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-  .hero-note{font-size:14px;color:var(--nau);margin-top:14px}
-
-  /* Phone mockup */
-  .phone{width:290px;margin:0 auto;background:var(--than);border-radius:36px;padding:12px;
-    box-shadow:0 24px 60px rgba(35,31,27,.18)}
-  .screen{background:var(--giay);border-radius:26px;overflow:hidden;font-size:13px}
-  .scr-head{background:linear-gradient(135deg,var(--gach),#F07B4F);color:#fff;padding:16px 16px 12px}
-  .scr-head .shop{font-weight:800;font-size:15px}
-  .scr-head .tag{font-size:11px;opacity:.9}
-  .scr-body{padding:10px 12px 12px}
+  /* ===== Hero (100vh, chữ neo đáy, phone nổi giữa) ===== */
+  #hero{position:relative;height:100svh;min-height:640px;display:flex;flex-direction:column}
+  #hero .glow{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);
+    width:min(70vw,720px);aspect-ratio:1;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,rgba(228,87,46,.32),rgba(242,183,5,.10) 45%,transparent 70%);
+    filter:blur(20px);will-change:transform,opacity}
+  #hero .phone-wrap{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);
+    z-index:5;will-change:transform;animation:floaty 6s ease-in-out infinite}
+  @keyframes floaty{0%,100%{margin-top:0}50%{margin-top:-14px}}
+  .phone{width:238px;background:#000;border-radius:32px;padding:10px;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 80px rgba(228,87,46,.22),0 10px 34px rgba(0,0,0,.6)}
+  .screen{background:#120D0A;border-radius:23px;overflow:hidden;font-size:12px}
+  .scr-head{background:linear-gradient(135deg,var(--gach),#B93A17);color:#fff;padding:13px 14px 10px}
+  .scr-head .shop{font-weight:800;font-size:14px}
+  .scr-head .tag{font-size:10px;opacity:.85}
+  .scr-body{padding:9px 10px 10px}
   .dish{display:flex;justify-content:space-between;align-items:center;gap:8px;
-    padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
-  .dish.hi{border-color:var(--gach);background:var(--gach-nhat)}
-  .dish .n{font-weight:700}
-  .dish .p{font-family:var(--mono);font-size:12px;color:var(--nau);white-space:nowrap}
-  .dish .p b{color:var(--gach);font-size:13px}
-  .strike{text-decoration:line-through;opacity:.6}
+    padding:8px 9px;border:1px solid var(--line);border-radius:9px;margin-bottom:7px;color:var(--xam)}
+  .dish .n{font-weight:700;color:var(--trang);font-size:11.5px}
+  .dish .d{font-size:10px}
+  .dish.hi{border-color:rgba(228,87,46,.6);background:var(--gach-mo)}
+  .dish .p{font-family:var(--mono);font-size:10.5px;white-space:nowrap}
+  .dish .p b{color:var(--gach-sang);font-size:12px}
+  .strike{text-decoration:line-through;opacity:.55}
   .scr-cta{background:var(--gach);color:#fff;text-align:center;font-weight:800;
-    border-radius:10px;padding:10px;margin-top:4px}
-  .scr-foot{text-align:center;font-size:10.5px;color:var(--nau);padding:8px 0 4px}
+    border-radius:9px;padding:9px;margin-top:2px;font-size:11.5px}
 
-  /* Sections */
-  section{padding:64px 0}
-  section.alt{background:var(--giay);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-  h2{font-size:32px;letter-spacing:-.015em;margin:0 0 10px;font-weight:800}
-  .lead{color:var(--nau);font-size:18px;margin:0 0 36px;max-width:38em}
+  #hero .grad{position:absolute;inset:0;z-index:6;pointer-events:none;
+    background:linear-gradient(to top,rgba(13,10,8,.92) 0%,rgba(13,10,8,.35) 32%,transparent 55%)}
+  #hero .content{position:relative;z-index:10;flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-end;text-align:center;padding:0 24px 86px;
+    will-change:opacity}
+  #hero .subtitle{font-family:var(--mono);font-size:12px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--xam-mo);margin-bottom:16px}
+  #hero h1{font-size:clamp(34px,6vw,62px);font-weight:800;line-height:1.12;
+    letter-spacing:-.02em;max-width:15em}
+  .underlined{position:relative;display:inline-block}
+  .underlined .line{position:absolute;bottom:.09em;left:-2%;width:104%;height:.18em;
+    background:var(--gach);border-radius:3px}
+  .underlined span{position:relative}
+  #hero .sub{color:var(--xam);font-size:18px;max-width:34em;margin-top:18px}
+  #hero .ctas{display:flex;align-items:center;gap:14px;margin-top:34px;flex-wrap:wrap;justify-content:center}
+  .code-box{display:flex;align-items:center;gap:10px;background:#171210;
+    border:1px solid var(--line);border-radius:10px;padding:14px 22px}
+  .code-box .prompt{color:var(--gach-sang);font-family:var(--mono);font-size:14px}
+  .code-box code{font-family:var(--mono);font-size:13.5px;color:var(--xam)}
+  .bounce-arrow{position:relative;z-index:10;display:flex;justify-content:center;padding-bottom:26px}
+  .bounce-arrow svg{width:24px;height:24px;color:var(--xam-mo);animation:bounce 1s infinite}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-25%)}}
+
+  /* ===== Fixed pain-cards (z:4, mask wipe theo scroll) ===== */
+  #fixed-cards{position:fixed;bottom:0;left:0;right:0;z-index:4;
+    padding:32px 40px 44px;opacity:0;pointer-events:none}
+  #fixed-cards .cards-kicker{max-width:72rem;margin:0 auto 18px;font-family:var(--mono);
+    font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--xam-mo)}
+  #fixed-cards .grid{max-width:72rem;margin:0 auto;display:grid;
+    grid-template-columns:repeat(3,1fr);gap:36px}
+  #fixed-cards .card h3{font-size:22px;font-weight:800;color:var(--trang);margin-bottom:12px}
+  #fixed-cards .card h3 .ico{margin-right:8px}
+  #fixed-cards .card p{color:var(--xam);font-size:14.5px;line-height:1.65}
+
+  /* ===== Content flow (z:2) ===== */
+  #content{position:relative;z-index:2}
+  section{padding:88px 0;position:relative}
+  h2{font-size:clamp(26px,3.6vw,36px);letter-spacing:-.015em;margin:0 0 12px;font-weight:800}
+  .lead{color:var(--xam);font-size:18px;margin:0 0 40px;max-width:38em}
+  .kicker{display:inline-block;font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--gach-sang);margin-bottom:14px}
+
+  /* reveal: blur -> rõ + trồi lên (học section-three Veldara) */
+  .reveal{opacity:0;transform:translateY(32px);filter:blur(8px);
+    transition:opacity 1s ease-out,transform 1s ease-out,filter 1s ease-out}
+  .reveal.visible{opacity:1;transform:translateY(0);filter:blur(0)}
 
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  .card{background:var(--giay);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
-  section.alt .card{background:var(--kem)}
-  .card .ico{font-size:28px;margin-bottom:10px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px}
   .card h3{margin:0 0 8px;font-size:18px}
-  .card p{margin:0;color:var(--nau);font-size:15.5px}
+  .card p{margin:0;color:var(--xam);font-size:15px}
 
   /* Steps */
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:step}
-  .step{background:var(--giay);border:1px solid var(--line);border-radius:var(--radius);
-    padding:26px 24px;position:relative}
-  .step::before{counter-increment:step;content:counter(step);position:absolute;top:-16px;left:20px;
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:30px 24px 24px;position:relative}
+  .step::before{counter-increment:step;content:counter(step);position:absolute;top:-17px;left:20px;
     width:34px;height:34px;border-radius:50%;background:var(--gach);color:#fff;font-weight:800;
-    display:flex;align-items:center;justify-content:center;font-size:16px}
-  .step h3{margin:8px 0 8px;font-size:17px}
-  .step p{margin:0;color:var(--nau);font-size:15px}
-  .step .t{font-family:var(--mono);font-size:11.5px;color:var(--la);margin-top:10px;display:block}
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+    box-shadow:0 6px 18px rgba(228,87,46,.4)}
+  .step h3{margin:0 0 8px;font-size:17px}
+  .step p{margin:0;color:var(--xam);font-size:14.5px}
+  .step .t{font-family:var(--mono);font-size:11.5px;color:var(--la);margin-top:12px;display:block}
 
-  /* Compare table */
-  .compare{width:100%;border-collapse:collapse;background:var(--giay);border-radius:var(--radius);
-    overflow:hidden;border:1px solid var(--line)}
+  /* Compare */
+  .compare{width:100%;border-collapse:collapse;background:var(--panel);
+    border-radius:var(--radius);overflow:hidden;border:1px solid var(--line)}
   .compare th{padding:16px 18px;text-align:left;font-size:15px}
-  .compare th:first-child{background:var(--kem);color:var(--nau);width:50%}
+  .compare th:first-child{background:var(--panel2);color:var(--xam-mo);width:50%}
   .compare th:last-child{background:var(--gach);color:#fff}
-  .compare td{padding:14px 18px;border-top:1px solid var(--line);font-size:15.5px;vertical-align:top}
-  .compare td:first-child{color:var(--nau);background:var(--kem)}
-  .compare td:last-child{font-weight:600}
+  .compare td{padding:14px 18px;border-top:1px solid var(--line-soft);font-size:15px;vertical-align:top}
+  .compare td:first-child{color:var(--xam-mo);background:var(--panel2)}
+  .compare td:last-child{color:var(--trang);font-weight:600}
 
-  /* Feature split */
+  /* Split */
   .split{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
   .split ul{margin:0;padding:0;list-style:none}
-  .split li{padding:10px 0 10px 34px;position:relative;color:var(--nau);font-size:16px}
-  .split li::before{content:"✓";position:absolute;left:0;top:9px;width:24px;height:24px;
-    border-radius:50%;background:var(--la-nhat);color:var(--la);font-weight:800;font-size:13px;
-    display:flex;align-items:center;justify-content:center}
-  .split li b{color:var(--than)}
-
-  /* Group order chat mock */
-  .chat{background:var(--giay);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
-  .msg{max-width:85%;background:var(--kem);border:1px solid var(--line);border-radius:14px;
-    padding:10px 14px;margin-bottom:10px;font-size:14px}
-  .msg .who{font-weight:700;font-size:12.5px;color:var(--gach)}
-  .msg.me{margin-left:auto;background:var(--la-nhat);border-color:#DDE6D0}
-  .msg .amt{font-family:var(--mono);font-size:12.5px;color:var(--nau)}
+  .split li{padding:10px 0 10px 36px;position:relative;color:var(--xam);font-size:16px}
+  .split li::before{content:"✓";position:absolute;left:0;top:10px;width:24px;height:24px;
+    border-radius:50%;background:rgba(155,193,120,.15);color:var(--la);font-weight:800;
+    font-size:13px;display:flex;align-items:center;justify-content:center}
+  .split li b{color:var(--trang)}
+  .chat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .msg{max-width:85%;background:var(--panel2);border:1px solid var(--line-soft);border-radius:14px;
+    padding:10px 14px;margin-bottom:10px;font-size:14px;color:var(--xam)}
+  .msg .who{font-weight:700;font-size:12.5px;color:var(--gach-sang)}
+  .msg.me{margin-left:auto;background:rgba(155,193,120,.10);border-color:rgba(155,193,120,.25)}
+  .msg .amt{font-family:var(--mono);font-size:12px;color:var(--xam-mo)}
+  .bars{font-family:var(--mono);font-size:14px;line-height:2.15;color:var(--xam)}
+  .bars b{color:var(--gach-sang)}
 
   /* Pricing */
-  .price-box{background:var(--giay);border:2px solid var(--gach);border-radius:var(--radius);
-    padding:36px;text-align:center;max-width:520px;margin:0 auto}
-  .price-box .p0{font-size:52px;font-weight:800;color:var(--gach);line-height:1;margin:8px 0}
-  .price-box .per{color:var(--nau);font-size:15px}
-  .price-note{text-align:center;color:var(--nau);font-size:14.5px;margin-top:16px}
+  .price-box{background:var(--panel);border:1px solid rgba(228,87,46,.5);border-radius:20px;
+    padding:40px;text-align:center;max-width:520px;margin:0 auto;
+    box-shadow:0 0 60px rgba(228,87,46,.12)}
+  .price-box .p0{font-size:58px;font-weight:800;color:var(--gach-sang);line-height:1;margin:10px 0}
+  .price-box .per{color:var(--xam);font-size:15px}
+  .price-note{text-align:center;color:var(--xam-mo);font-size:14px;margin-top:18px}
 
   /* FAQ */
-  details{background:var(--giay);border:1px solid var(--line);border-radius:12px;
+  details{background:var(--panel);border:1px solid var(--line);border-radius:12px;
     padding:16px 20px;margin-bottom:10px}
-  summary{font-weight:700;cursor:pointer;font-size:16px}
-  details p{color:var(--nau);margin:10px 0 0;font-size:15.5px}
+  summary{font-weight:700;cursor:pointer;font-size:16px;color:var(--trang)}
+  details p{color:var(--xam);margin:10px 0 0;font-size:15px}
 
-  /* Final CTA */
-  .final{background:var(--than);color:#fff;text-align:center;padding:72px 24px;border-radius:24px;
-    margin:0 24px 64px}
-  .final h2{color:#fff;font-size:36px}
-  .final p{color:#CFC6BD;font-size:18px;margin:0 0 28px}
-  .final .qr-line{font-family:var(--mono);letter-spacing:.2em;font-size:13px;color:var(--vang);
-    text-transform:uppercase;margin-bottom:10px}
+  /* Final reveal (kiểu "Presenting / Veldara 8") */
+  #final{min-height:92vh;display:flex;align-items:flex-end;justify-content:center;
+    padding:0 24px 110px;text-align:center;position:relative}
+  #final .f-glow{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    width:min(80vw,900px);height:60%;pointer-events:none;
+    background:radial-gradient(ellipse at bottom,rgba(228,87,46,.25),transparent 65%)}
+  #final .inner{position:relative;z-index:10}
+  #final .qr-line{font-family:var(--mono);letter-spacing:.3em;font-size:13px;
+    color:var(--vang);text-transform:uppercase;margin-bottom:14px}
+  #final h2{font-size:clamp(34px,6.5vw,68px);font-weight:800;line-height:1.1;margin-bottom:16px}
+  #final p{color:var(--xam);font-size:18px;margin:0 0 30px}
 
-  footer{padding:0 0 44px;color:var(--nau);font-size:14px}
+  footer{padding:0 0 46px;color:var(--xam-mo);font-size:14px;position:relative;z-index:2}
   .foot-in{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
-    border-top:1px solid var(--line);padding-top:22px}
+    border-top:1px solid var(--line-soft);padding-top:22px}
+  footer a{color:var(--xam)}
 
-  @media(max-width:860px){
-    .hero-grid,.split{grid-template-columns:1fr}
-    .grid3,.steps{grid-template-columns:1fr}
-    h1{font-size:34px} h2{font-size:26px}
-    .nav-links a.hide-m{display:none}
-    .phone{margin-top:8px}
-    .steps{row-gap:30px}
+  @media(max-width:768px){
+    nav{padding:14px 20px}
+    nav .nav-links a.hide-m{display:none}
+    #hero{min-height:600px}
+    #hero .content{padding-bottom:70px}
+    #hero .sub{font-size:16px}
+    .phone{width:190px}
+    #hero .phone-wrap{top:29%}
+    .ctas{flex-direction:column}
+    .grid3,.steps,.split{grid-template-columns:1fr}
+    .steps{row-gap:32px}
+    #fixed-cards{padding:20px 18px 28px}
+    #fixed-cards .grid{grid-template-columns:1fr;gap:16px}
+    #fixed-cards .card h3{font-size:17px;margin-bottom:6px}
+    #fixed-cards .card p{font-size:13px}
+    section{padding:64px 0}
   }
 </style>
 </head>
 <body>
 
-<nav>
-  <div class="wrap nav-in">
-    <div class="logo">Tiệm<span class="dot">Quen</span></div>
+<!-- Lớp hạt lơ lửng (z:3) -->
+<canvas id="particles-canvas" aria-hidden="true"></canvas>
+
+<!-- 3 pain-card ghim đáy viewport, hiện bằng mask wipe (z:4) -->
+<div id="fixed-cards" aria-hidden="true">
+  <div class="cards-kicker">Quán đang nuôi app, hay app đang nuôi quán?</div>
+  <div class="grid">
+    <div class="card">
+      <h3><span class="ico">🧾</span>Hoa hồng 25–30% mỗi đơn</h3>
+      <p>Bán 40k, về tay chưa tới 30k. Biên mỏng của quán cơm không gánh nổi — trong khi khách trưa của bạn đặt lặp lại 90% quanh vài món quen.</p>
+    </div>
+    <div class="card">
+      <h3><span class="ico">🔒</span>Khách là của app</h3>
+      <p>Không số điện thoại, không lịch sử đơn, không kênh chăm lại. Khách quen 3 năm vẫn là "khách lạ" mỗi lần mở app.</p>
+    </div>
+    <div class="card">
+      <h3><span class="ico">💬</span>Đơn Zalo chốt tay</h3>
+      <p>Khách nhắn "cho 2 cơm sườn nha", quán tự cộng tiền, tự nhớ ai chưa chuyển khoản. Đơn nhóm văn phòng thì trưởng kèo è cổ đi đòi.</p>
+    </div>
+  </div>
+</div>
+
+<nav id="nav">
+  <div style="display:flex;align-items:center;gap:28px">
+    <span class="logo">Tiệm<span class="dot">Quen</span></span>
     <div class="nav-links">
       <a class="hide-m" href="#cach-hoat-dong">Cách hoạt động</a>
       <a class="hide-m" href="#to-roi">Tờ rơi 2.0</a>
       <a class="hide-m" href="#gia">Bảng giá</a>
-      <a class="btn" href="#dang-ky">Tạo tiệm miễn phí</a>
     </div>
   </div>
+  <a class="btn" href="#dang-ky">Tạo tiệm miễn phí</a>
 </nav>
 
-<header class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <span class="kicker">Kênh đặt hàng riêng của quán</span>
-      <h1>Tiệm quen,<br><em>kêu là có.</em></h1>
-      <p class="sub">Biến tờ rơi giấy thành kênh đặt hàng thường trực: khách đói nhìn tờ rơi
-        trên bàn, tủ lạnh, pantry văn phòng — quét QR, đặt trong <b>3 chạm</b>.
-        Không cài app, không đăng nhập. Đơn về thẳng quán, tiền về thẳng tài khoản quán.</p>
-      <div class="hero-ctas">
-        <a class="btn big" href="#dang-ky">Tạo tiệm cho quán của bạn — miễn phí</a>
-        <a class="btn ghost" href="#cach-hoat-dong">Xem 10 phút lên tiệm</a>
-      </div>
-      <p class="hero-note">Dành cho quán cơm, bún, đồ uống gần cụm văn phòng — đã có khách quen đặt lặp lại mỗi trưa.</p>
-    </div>
-    <div class="phone" aria-hidden="true">
-      <div class="screen">
-        <div class="scr-head">
-          <div class="shop">Cơm Tấm Cô Ba</div>
-          <div class="tag">Tiệm quen, kêu là có · giao khu Bến Thành</div>
-        </div>
-        <div class="scr-body">
-          <div class="dish hi">
-            <div><div class="n">↻ Đặt lại cơm sườn hôm qua?</div><div class="p">1 chạm · trả khi nhận</div></div>
-            <div class="p"><b>35k</b></div>
+<div id="content">
+
+  <!-- ===== HERO ===== -->
+  <section id="hero">
+    <div class="glow" id="hero-glow"></div>
+    <div class="phone-wrap" id="hero-phone" aria-hidden="true">
+      <div class="phone">
+        <div class="screen">
+          <div class="scr-head">
+            <div class="shop">Cơm Tấm Cô Ba</div>
+            <div class="tag">Tiệm quen, kêu là có · giao khu Bến Thành</div>
           </div>
-          <div class="dish">
-            <div><div class="n">Combo trưa văn phòng</div><div class="p">cơm + canh + trà đá</div></div>
-            <div class="p"><span class="strike">52k</span> <b>40k</b></div>
+          <div class="scr-body">
+            <div class="dish hi">
+              <div><div class="n">↻ Đặt lại cơm sườn hôm qua?</div><div class="d">1 chạm · trả khi nhận</div></div>
+              <div class="p"><b>35k</b></div>
+            </div>
+            <div class="dish">
+              <div><div class="n">Combo trưa văn phòng</div><div class="d">cơm + canh + trà đá</div></div>
+              <div class="p"><span class="strike">52k</span> <b>40k</b></div>
+            </div>
+            <div class="dish">
+              <div><div class="n">Cơm gà xối mỡ</div></div>
+              <div class="p"><b>38k</b></div>
+            </div>
+            <div class="scr-cta">Đặt cho cả phòng →</div>
           </div>
-          <div class="dish">
-            <div><div class="n">Cơm gà xối mỡ</div></div>
-            <div class="p"><b>38k</b></div>
-          </div>
-          <div class="scr-cta">Đặt cho cả phòng →</div>
-          <div class="scr-foot">Tạo tiệm cho quán của bạn — miễn phí</div>
         </div>
       </div>
     </div>
-  </div>
-</header>
-
-<section>
-  <div class="wrap">
-    <h2>Quán đang nuôi app, hay app đang nuôi quán?</h2>
-    <p class="lead">Ba cái đau quen thuộc của quán bán qua sàn — Tiệm Quen sinh ra để gỡ đúng ba cái đó.</p>
-    <div class="grid3">
-      <div class="card">
-        <div class="ico">🧾</div>
-        <h3>Hoa hồng 25–30% mỗi đơn</h3>
-        <p>Bán 40k, về tay chưa tới 30k. Biên mỏng của quán cơm không gánh nổi — trong khi khách trưa
-           của bạn đặt lặp lại 90% quanh vài món quen.</p>
-      </div>
-      <div class="card">
-        <div class="ico">🔒</div>
-        <h3>Khách là của app, không phải của quán</h3>
-        <p>Không số điện thoại, không lịch sử đơn, không kênh chăm lại. Khách quen 3 năm vẫn là
-           "khách lạ" mỗi lần mở app.</p>
-      </div>
-      <div class="card">
-        <div class="ico">💬</div>
-        <h3>Đơn Zalo chốt tay, không menu, không nhắc tiền</h3>
-        <p>Khách nhắn "cho 2 cơm sườn nha", quán tự cộng tiền, tự nhớ ai chưa chuyển khoản.
-           Đơn nhóm văn phòng thì trưởng kèo è cổ đi đòi.</p>
+    <div class="grad"></div>
+    <div class="content" id="hero-content">
+      <p class="subtitle">Kênh đặt hàng riêng của quán</p>
+      <h1>Tiệm quen,
+        <span class="underlined"><span class="line"></span><span>kêu là có.</span></span>
+      </h1>
+      <p class="sub">Tờ rơi giấy thành kênh đặt hàng thường trực: khách đói quét QR trên bàn,
+        tủ lạnh, pantry văn phòng — đặt trong 3 chạm. Không app, không đăng nhập.
+        Đơn về thẳng quán, tiền về thẳng tài khoản quán.</p>
+      <div class="ctas">
+        <div class="code-box"><span class="prompt">&gt;</span><code>quét QR · 3 chạm · 0% hoa hồng</code></div>
+        <a href="#dang-ky" class="btn big">Tạo tiệm miễn phí <span>&rarr;</span></a>
       </div>
     </div>
-  </div>
-</section>
+    <div class="bounce-arrow" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+      </svg>
+    </div>
+  </section>
 
-<section class="alt" id="to-roi">
-  <div class="wrap">
-    <h2>Tờ rơi 2.0 — tờ giấy cũ, sức mạnh mới</h2>
-    <p class="lead">In 1 lần, nội dung sống mãi: QR tĩnh nhưng menu, giá, món hết sau QR cập nhật realtime.</p>
-    <table class="compare">
-      <thead><tr><th>Tờ rơi cũ</th><th>Tờ rơi 2.0 của Tiệm Quen</th></tr></thead>
-      <tbody>
-        <tr><td>Nhìn xong vứt</td><td>Đáng giữ: menu + giá thật, thiết kế đẹp sinh riêng theo quán</td></tr>
-        <tr><td>Muốn đặt phải gọi điện</td><td>Quét QR → trang đặt món 3 chạm, không cài app, không đăng nhập</td></tr>
-        <tr><td>Nội dung chết, đổi giá phải in lại</td><td>Giấy in 1 lần — menu/giá sau QR sửa 1 chỗ là cập nhật, hết món tự ẩn</td></tr>
-        <tr><td>Không biết dán đâu hiệu quả</td><td>Mỗi batch in 1 mã QR riêng → biết tờ ở pantry nào ra bao nhiêu đơn</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
+  <!-- khoảng trống trước vùng kích hoạt pain-cards -->
+  <div style="height:50vh"></div>
+  <!-- vùng kích hoạt: vị trí/chiều cao quyết định cards vào-ra -->
+  <div id="cards-trigger" style="height:200vh"></div>
+  <div style="height:50vh"></div>
 
-<section id="cach-hoat-dong">
-  <div class="wrap">
-    <h2>10 phút lên tiệm, 3 bước</h2>
-    <p class="lead">Không cần biết công nghệ. Có menu trên Grab/ShopeeFood hoặc một tấm hình chụp menu là đủ.</p>
-    <div class="steps">
-      <div class="step">
-        <h3>Đưa menu cho Tiệm Quen</h3>
-        <p>Dán link quán trên sàn, hoặc chụp màn hình menu gửi lên. Hệ thống tự đọc món, giá, ảnh, giờ mở cửa.</p>
-        <span class="t">~2 phút</span>
+  <!-- ===== TỜ RƠI 2.0 ===== -->
+  <section id="to-roi">
+    <div class="wrap reveal">
+      <span class="kicker">Tờ rơi 2.0</span>
+      <h2>Tờ giấy cũ, sức mạnh mới</h2>
+      <p class="lead">In 1 lần, nội dung sống mãi: QR tĩnh nhưng menu, giá, món hết sau QR cập nhật realtime.</p>
+      <table class="compare">
+        <thead><tr><th>Tờ rơi cũ</th><th>Tờ rơi 2.0 của Tiệm Quen</th></tr></thead>
+        <tbody>
+          <tr><td>Nhìn xong vứt</td><td>Đáng giữ: menu + giá thật, thiết kế đẹp sinh riêng theo quán</td></tr>
+          <tr><td>Muốn đặt phải gọi điện</td><td>Quét QR → trang đặt món 3 chạm, không cài app, không đăng nhập</td></tr>
+          <tr><td>Nội dung chết, đổi giá phải in lại</td><td>Giấy in 1 lần — menu/giá sau QR sửa 1 chỗ là cập nhật, hết món tự ẩn</td></tr>
+          <tr><td>Không biết dán đâu hiệu quả</td><td>Mỗi batch in 1 mã QR riêng → biết tờ ở pantry nào ra bao nhiêu đơn</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 3 BƯỚC ===== -->
+  <section id="cach-hoat-dong">
+    <div class="wrap reveal">
+      <span class="kicker">Onboard &lt; 10 phút</span>
+      <h2>10 phút lên tiệm, 3 bước</h2>
+      <p class="lead">Không cần biết công nghệ. Có menu trên Grab/ShopeeFood hoặc một tấm hình chụp menu là đủ.</p>
+      <div class="steps">
+        <div class="step">
+          <h3>Đưa menu cho Tiệm Quen</h3>
+          <p>Dán link quán trên sàn, hoặc chụp màn hình menu gửi lên. Hệ thống tự đọc món, giá, ảnh, giờ mở cửa.</p>
+          <span class="t">~2 phút</span>
+        </div>
+        <div class="step">
+          <h3>Duyệt lại giá</h3>
+          <p>Không mất hoa hồng nên đa số quán giảm 10–15% cho đơn trực tiếp. Sửa giá, ẩn món, thêm món "chỉ bán tại tiệm" — vài cú chạm.</p>
+          <span class="t">~3 phút</span>
+        </div>
+        <div class="step">
+          <h3>Nhận web tiệm + bộ tờ rơi in</h3>
+          <p>Trang đặt món riêng của quán + tờ rơi 3 cỡ (A5 nhét túi đơn, A4 dán pantry, sticker tủ lạnh) — PDF chuẩn in, thiết kế sinh riêng theo quán.</p>
+          <span class="t">~5 phút</span>
+        </div>
       </div>
-      <div class="step">
-        <h3>Duyệt lại giá</h3>
-        <p>Không mất hoa hồng nên đa số quán giảm 10–15% cho đơn trực tiếp. Sửa giá, ẩn món,
-           thêm món "chỉ bán tại tiệm" — vài cú chạm.</p>
-        <span class="t">~3 phút</span>
+    </div>
+  </section>
+
+  <!-- ===== ĐƠN NHÓM ===== -->
+  <section>
+    <div class="wrap split reveal">
+      <div>
+        <span class="kicker">Use case chủ lực</span>
+        <h2>Đơn nhóm văn phòng — kèo trưa hết cực</h2>
+        <p class="lead" style="margin-bottom:20px">Một người quét QR ở pantry, cả phòng tự chọn món vào chung một đơn.</p>
+        <ul>
+          <li><b>Không chuyển tiếp screenshot menu</b> — share 1 link vào group Zalo là xong</li>
+          <li><b>1 đơn, 1 ship</b> — chốt giờ, quán nhận một đơn gọn thay vì 8 tin nhắn lẻ</li>
+          <li><b>Chia tiền tự động</b> — từng người thấy phần mình + mã VietQR hoàn đúng số tiền cho người trả hộ</li>
+          <li><b>Hệ thống đi nhắc chuyển khoản giùm</b> — trưởng kèo khỏi làm "người xấu"</li>
+        </ul>
       </div>
-      <div class="step">
-        <h3>Nhận web tiệm + bộ tờ rơi in</h3>
-        <p>Trang đặt món riêng của quán + tờ rơi 3 cỡ (A5 nhét túi đơn, A4 dán pantry, sticker tủ lạnh)
-           — file PDF chuẩn in, thiết kế sinh riêng theo quán.</p>
-        <span class="t">~5 phút</span>
+      <div class="chat" aria-hidden="true">
+        <div class="msg"><div class="who">Linh</div>Cơm gà xối mỡ <div class="amt">38.000đ · đã chuyển ✓</div></div>
+        <div class="msg me"><div class="who">Tuấn</div>Bún thịt nướng, ít nước mắm <div class="amt">35.000đ · chưa chuyển</div></div>
+        <div class="msg"><div class="who">Tiệm Quen</div>Kèo chốt 11:15 · 5 người · 187.000đ — QR hoàn tiền cho chị Hoa đã gửi từng người 👌</div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<section class="alt">
-  <div class="wrap split">
-    <div>
-      <h2>Đơn nhóm văn phòng — kèo trưa hết cực</h2>
-      <p class="lead" style="margin-bottom:20px">Một người quét QR ở pantry, cả phòng tự chọn món vào chung một đơn.</p>
-      <ul>
-        <li><b>Không chuyển tiếp screenshot menu</b> — share 1 link vào group Zalo là xong</li>
-        <li><b>1 đơn, 1 ship</b> — chốt giờ, quán nhận một đơn gọn thay vì 8 tin nhắn lẻ</li>
-        <li><b>Chia tiền tự động</b> — từng người thấy phần mình + mã VietQR hoàn đúng số tiền cho người trả hộ</li>
-        <li><b>Hệ thống đi nhắc chuyển khoản giùm</b> — trưởng kèo khỏi làm "người xấu"</li>
-      </ul>
+  <!-- ===== ANALYTICS ===== -->
+  <section>
+    <div class="wrap split reveal">
+      <div class="card" style="padding:28px" aria-hidden="true">
+        <h3 style="margin-top:0">📊 Đơn theo tờ rơi — tuần này</h3>
+        <p class="bars">
+          A4 · pantry toà Bitexco &nbsp;<b>▮▮▮▮▮▮▮▮ 23 đơn</b><br>
+          A5 · túi đơn sàn &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>▮▮▮▮▮ 14 đơn</b><br>
+          Sticker · tủ lạnh VP &nbsp;&nbsp;&nbsp;<b>▮▮ 6 đơn</b>
+        </p>
+      </div>
+      <div>
+        <span class="kicker">Flyer analytics</span>
+        <h2>Biết tờ nào ra tiền, in thêm đúng chỗ</h2>
+        <p class="lead" style="margin-bottom:20px">Mỗi đợt in mang một mã QR riêng — quán thấy rõ chỗ dán nào ra đơn.</p>
+        <ul>
+          <li><b>Đơn báo về tức thì</b> — quán chưa xem trong 2 phút, hệ thống nhắn SMS ngay; khách thấy trạng thái "quán đã thấy đơn"</li>
+          <li><b>Trả khi nhận là mặc định</b> — khách không phải trả trước, tiền luôn vào thẳng quán, Tiệm Quen không giữ tiền hộ</li>
+          <li><b>Sổ sách tự động</b> — báo cáo doanh thu xuất được để quán kê khai, minh bạch, khỏi ghi tay</li>
+        </ul>
+      </div>
     </div>
-    <div class="chat" aria-hidden="true">
-      <div class="msg"><div class="who">Linh</div>Cơm gà xối mỡ <div class="amt">38.000đ · đã chuyển ✓</div></div>
-      <div class="msg me"><div class="who">Tuấn</div>Bún thịt nướng, ít nước mắm <div class="amt">35.000đ · chưa chuyển</div></div>
-      <div class="msg"><div class="who">Tiệm Quen</div>Kèo chốt 11:15 · 5 người · 187.000đ — QR hoàn tiền cho chị Hoa đã gửi từng người 👌</div>
-    </div>
-  </div>
-</section>
+  </section>
 
-<section>
-  <div class="wrap split">
-    <div class="card" style="padding:28px" aria-hidden="true">
-      <h3 style="margin-top:0">📊 Đơn theo tờ rơi — tuần này</h3>
-      <p style="font-family:var(--mono);font-size:14px;line-height:2.1;margin:0;color:var(--nau)">
-        A4 · pantry toà Bitexco &nbsp;<b style="color:var(--gach)">▮▮▮▮▮▮▮▮ 23 đơn</b><br>
-        A5 · túi đơn sàn &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="color:var(--gach)">▮▮▮▮▮ 14 đơn</b><br>
-        Sticker · tủ lạnh VP &nbsp;&nbsp;&nbsp;<b style="color:var(--gach)">▮▮ 6 đơn</b>
-      </p>
+  <!-- ===== GIÁ ===== -->
+  <section id="gia">
+    <div class="wrap reveal">
+      <div style="text-align:center">
+        <span class="kicker">Không thu % trên đơn</span>
+        <h2>Bảng giá thẳng như giá cơm</h2>
+        <p class="lead" style="margin-left:auto;margin-right:auto">Đơn của quán là của quán.</p>
+      </div>
+      <div class="price-box">
+        <div style="font-weight:700;color:var(--xam)">Giai đoạn đầu</div>
+        <div class="p0">0đ</div>
+        <div class="per">Trọn bộ: web tiệm + tờ rơi 3 cỡ + đơn nhóm + báo đơn tức thì.<br>Tặng kèm 100 tờ in đợt đầu cho quán pilot.</div>
+        <div style="margin-top:24px"><a class="btn big" href="#dang-ky">Tạo tiệm miễn phí</a></div>
+      </div>
+      <p class="price-note">Về sau: 1 tiệm luôn miễn phí; gói nâng cao (nhiều chi nhánh, tên miền riêng, phân tích sâu)
+        khoảng 200–300k/tháng — báo trước, không tự động trừ.</p>
     </div>
-    <div>
-      <h2>Biết tờ nào ra tiền, in thêm đúng chỗ</h2>
-      <p class="lead" style="margin-bottom:20px">Mỗi đợt in mang một mã QR riêng — quán thấy rõ chỗ dán nào ra đơn.</p>
-      <ul>
-        <li><b>Đơn báo về tức thì</b> — quán chưa xem trong 2 phút, hệ thống nhắn SMS ngay; khách thấy trạng thái "quán đã thấy đơn"</li>
-        <li><b>Trả khi nhận là mặc định</b> — khách không phải trả trước, tiền luôn vào thẳng quán, Tiệm Quen không giữ tiền hộ</li>
-        <li><b>Sổ sách tự động</b> — báo cáo doanh thu xuất được để quán kê khai, minh bạch, khỏi ghi tay</li>
-      </ul>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section>
+    <div class="wrap reveal" style="max-width:760px">
+      <span class="kicker">Hỏi nhanh đáp gọn</span>
+      <h2 style="margin-bottom:26px">Câu quán hay hỏi</h2>
+      <details>
+        <summary>Tiệm Quen có giữ tiền của quán không?</summary>
+        <p>Không. Mặc định khách trả khi nhận (tiền mặt hoặc chuyển khoản lúc giao). Khách quen có thể
+           chuyển khoản trước qua VietQR — tiền vào thẳng tài khoản ngân hàng của quán, không qua ví trung gian nào.</p>
+      </details>
+      <details>
+        <summary>Khách có phải cài app không?</summary>
+        <p>Không. Quét QR là ra trang đặt món, mở nhanh dưới 2 giây kể cả mạng 4G yếu. Không tải app,
+           không tạo tài khoản, không mật khẩu.</p>
+      </details>
+      <details>
+        <summary>Quán không rành công nghệ có dùng được không?</summary>
+        <p>Được. Lên tiệm chỉ cần dán link hoặc gửi hình menu. Hằng ngày quán chỉ làm hai việc quen thuộc:
+           xem đơn báo về (như xem tin nhắn) và bấm "hết món" khi món hết.</p>
+      </details>
+      <details>
+        <summary>Ai giao hàng?</summary>
+        <p>Quán tự giao trong bán kính quen (1–2km quanh cụm văn phòng) — đúng tệp khách trưa đặt lặp lại.
+           Quán nào cần có thể tự gọi Grab Express/Ahamove cho đơn xa.</p>
+      </details>
+      <details>
+        <summary>Sao phải giảm giá cho đơn trực tiếp?</summary>
+        <p>Không bắt buộc — nhưng vì không mất hoa hồng, đa số quán chọn giảm 10–15% mà vẫn lời hơn bán qua sàn.
+           Giá tốt hơn là lý do lớn nhất để khách đổi thói quen quét QR thay vì mở app.</p>
+      </details>
+      <details>
+        <summary>Dữ liệu khách hàng thuộc về ai?</summary>
+        <p>Thuộc về quán. Tiệm Quen chỉ xử lý thay, thu thông tin ở mức tối thiểu để giao hàng (tên, SĐT, địa chỉ)
+           và có trang chính sách + ô đồng ý rõ ràng theo Luật Bảo vệ dữ liệu cá nhân.</p>
+      </details>
     </div>
-  </div>
-</section>
+  </section>
 
-<section class="alt" id="gia">
-  <div class="wrap">
-    <h2 style="text-align:center">Bảng giá thẳng như giá cơm</h2>
-    <p class="lead" style="text-align:center;margin-left:auto;margin-right:auto">Không thu % trên đơn. Đơn của quán là của quán.</p>
-    <div class="price-box">
-      <div style="font-weight:700;color:var(--nau)">Giai đoạn đầu</div>
-      <div class="p0">0đ</div>
-      <div class="per">Trọn bộ: web tiệm + tờ rơi 3 cỡ + đơn nhóm + báo đơn tức thì.<br>Tặng kèm 100 tờ in đợt đầu cho quán pilot.</div>
-      <div style="margin-top:22px"><a class="btn big" href="#dang-ky">Tạo tiệm miễn phí</a></div>
+  <!-- ===== FINAL REVEAL ===== -->
+  <section id="final">
+    <div class="f-glow" aria-hidden="true"></div>
+    <div class="inner reveal" id="dang-ky">
+      <div class="qr-line">Thèm? Quét.</div>
+      <h2>Tiệm của mình.<br>Khách của mình.</h2>
+      <p>5 suất pilot đầu tiên quanh cụm văn phòng — miễn phí trọn bộ, tặng 100 tờ rơi in sẵn.</p>
+      <a class="btn big" href="https://zalo.me/" rel="noopener">Nhắn Zalo giữ suất pilot</a>
     </div>
-    <p class="price-note">Về sau: 1 tiệm luôn miễn phí; gói nâng cao (nhiều chi nhánh, tên miền riêng, phân tích sâu)
-      khoảng 200–300k/tháng — báo trước, không tự động trừ.</p>
-  </div>
-</section>
+  </section>
 
-<section>
-  <div class="wrap" style="max-width:760px">
-    <h2>Hỏi nhanh đáp gọn</h2>
-    <details>
-      <summary>Tiệm Quen có giữ tiền của quán không?</summary>
-      <p>Không. Mặc định khách trả khi nhận (tiền mặt hoặc chuyển khoản lúc giao). Khách quen có thể
-         chuyển khoản trước qua VietQR — tiền vào thẳng tài khoản ngân hàng của quán, không qua ví trung gian nào.</p>
-    </details>
-    <details>
-      <summary>Khách có phải cài app không?</summary>
-      <p>Không. Quét QR là ra trang đặt món, mở nhanh dưới 2 giây kể cả mạng 4G yếu. Không tải app,
-         không tạo tài khoản, không mật khẩu.</p>
-    </details>
-    <details>
-      <summary>Quán không rành công nghệ có dùng được không?</summary>
-      <p>Được. Lên tiệm chỉ cần dán link hoặc gửi hình menu. Hằng ngày quán chỉ làm hai việc quen thuộc:
-         xem đơn báo về (như xem tin nhắn) và bấm "hết món" khi món hết.</p>
-    </details>
-    <details>
-      <summary>Ai giao hàng?</summary>
-      <p>Quán tự giao trong bán kính quen (1–2km quanh cụm văn phòng) — đúng tệp khách trưa đặt lặp lại.
-         Quán nào cần có thể tự gọi Grab Express/Ahamove cho đơn xa.</p>
-    </details>
-    <details>
-      <summary>Sao phải giảm giá cho đơn trực tiếp?</summary>
-      <p>Không bắt buộc — nhưng vì không mất hoa hồng, đa số quán chọn giảm 10–15% mà vẫn lời hơn bán qua sàn.
-         Giá tốt hơn là lý do lớn nhất để khách đổi thói quen quét QR thay vì mở app.</p>
-    </details>
-    <details>
-      <summary>Dữ liệu khách hàng thuộc về ai?</summary>
-      <p>Thuộc về quán. Tiệm Quen chỉ xử lý thay, thu thông tin ở mức tối thiểu để giao hàng (tên, SĐT, địa chỉ)
-         và có trang chính sách + ô đồng ý rõ ràng theo Luật Bảo vệ dữ liệu cá nhân.</p>
-    </details>
-  </div>
-</section>
+  <footer>
+    <div class="wrap foot-in">
+      <div><b style="color:var(--trang)">Tiệm<span style="color:var(--gach)">Quen</span></b> · tiemquen.com — Tiệm quen, kêu là có.</div>
+      <div><a href="#">Chính sách dữ liệu</a> · <a href="#">Điều khoản</a> · <a href="#dang-ky">Tạo tiệm miễn phí</a></div>
+    </div>
+  </footer>
 
-<div class="final" id="dang-ky">
-  <div class="qr-line">Thèm? Quét.</div>
-  <h2>Tiệm của mình. Khách của mình.</h2>
-  <p>5 suất pilot đầu tiên quanh cụm văn phòng — miễn phí trọn bộ, tặng 100 tờ rơi in sẵn.</p>
-  <a class="btn big" href="https://zalo.me/" rel="noopener">Nhắn Zalo giữ suất pilot</a>
 </div>
 
-<footer>
-  <div class="wrap foot-in">
-    <div><b>Tiệm<span style="color:var(--gach)">Quen</span></b> · tiemquen.com — Tiệm quen, kêu là có.</div>
-    <div><a href="#">Chính sách dữ liệu</a> · <a href="#">Điều khoản</a> · <a href="#dang-ky">Tạo tiệm miễn phí</a></div>
-  </div>
-</footer>
+<script>
+(function () {
+  "use strict";
+
+  /* ===== A. Hạt lơ lửng (particle field, wrap biên) ===== */
+  var pCanvas = document.getElementById("particles-canvas");
+  var pCtx = pCanvas.getContext("2d");
+  var particles = [];
+  var WARM = ["255,255,255", "242,183,5", "240,102,60"];
+
+  function createParticles() {
+    particles = [];
+    var count = Math.floor((pCanvas.width * pCanvas.height) / 14000);
+    for (var i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * pCanvas.width,
+        y: Math.random() * pCanvas.height,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3 - 0.05,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.5 + 0.15,
+        c: WARM[Math.random() < 0.75 ? 0 : (Math.random() < 0.5 ? 1 : 2)]
+      });
+    }
+  }
+  function resizeParticles() {
+    pCanvas.width = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+    createParticles();
+  }
+  function animateParticles() {
+    pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = pCanvas.width;
+      if (p.x > pCanvas.width) p.x = 0;
+      if (p.y < 0) p.y = pCanvas.height;
+      if (p.y > pCanvas.height) p.y = 0;
+      pCtx.beginPath();
+      pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      pCtx.fillStyle = "rgba(" + p.c + "," + p.opacity + ")";
+      pCtx.fill();
+    }
+    requestAnimationFrame(animateParticles);
+  }
+  resizeParticles();
+  window.addEventListener("resize", resizeParticles);
+  animateParticles();
+
+  /* ===== B. Scroll-driven hero (rAF đọc scrollY — không dùng scroll event cho animation) ===== */
+  var heroContent = document.getElementById("hero-content");
+  var heroGlow = document.getElementById("hero-glow");
+  var heroPhone = document.getElementById("hero-phone");
+  var nav = document.getElementById("nav");
+  var lastY = -1;
+
+  function heroTick() {
+    var y = window.scrollY;
+    if (y !== lastY) {
+      lastY = y;
+      var vh = window.innerHeight;
+      // chữ hero mờ dần khi cuộn 30% viewport
+      var fade = Math.max(0, 1 - y / (vh * 0.3));
+      heroContent.style.opacity = fade;
+      // phone + glow: scrub theo scroll — trồi lên, phóng nhẹ rồi tan
+      var pr = Math.min(1, y / (vh * 0.9));
+      heroPhone.style.transform = "translate(-50%,-50%) translateY(" + (-pr * vh * 0.28) + "px) scale(" + (1 + pr * 0.18) + ")";
+      heroPhone.style.opacity = 1 - Math.max(0, (pr - 0.55) / 0.45);
+      heroGlow.style.transform = "translate(-50%,-50%) scale(" + (1 + pr * 0.7) + ")";
+      heroGlow.style.opacity = 1 - pr * 0.8;
+      // nav nền mờ khi rời hero
+      if (y > vh * 0.6) nav.classList.add("scrolled");
+      else nav.classList.remove("scrolled");
+    }
+    requestAnimationFrame(heroTick);
+  }
+  requestAnimationFrame(heroTick);
+
+  /* ===== C. Pain-cards ghim đáy + mask wipe (trái→phải; mobile trên→dưới) ===== */
+  var fixedCards = document.getElementById("fixed-cards");
+  var cardsGrid = fixedCards.querySelector(".grid");
+  var trigger = document.getElementById("cards-trigger");
+
+  function tickCards() {
+    var rect = trigger.getBoundingClientRect();
+    var scrollY = window.scrollY;
+    var vh = window.innerHeight;
+    var triggerTop = rect.top + scrollY;
+    var triggerHeight = rect.height;
+
+    var start = triggerTop - vh * 0.5;
+    var end = triggerTop + triggerHeight - vh * 0.3;
+    var range = end - start;
+
+    var progress = range > 0 ? (scrollY - start) / range : 0;
+    progress = Math.max(0, Math.min(1, progress));
+
+    var isActive = scrollY >= start - vh * 0.2 && scrollY <= end + vh * 0.3;
+    var fadeIn = Math.min(1, Math.max(0, (scrollY - (start - vh * 0.2)) / (vh * 0.2)));
+    var fadeOut = Math.min(1, Math.max(0, (end + vh * 0.3 - scrollY) / (vh * 0.3)));
+    var opacity = isActive ? Math.min(fadeIn, fadeOut) : 0;
+
+    fixedCards.style.opacity = opacity;
+    fixedCards.style.pointerEvents = opacity > 0.1 ? "auto" : "none";
+
+    var isMobile = window.innerWidth < 768;
+    var revealPct = progress * 130;
+    var mask = isMobile
+      ? "linear-gradient(to bottom, black " + revealPct + "%, transparent " + (revealPct + 20) + "%)"
+      : "linear-gradient(to right, black " + revealPct + "%, transparent " + (revealPct + 15) + "%)";
+    cardsGrid.style.maskImage = mask;
+    cardsGrid.style.webkitMaskImage = mask;
+
+    requestAnimationFrame(tickCards);
+  }
+  requestAnimationFrame(tickCards);
+
+  /* ===== D. Reveal các section: blur → rõ + trồi lên ===== */
+  var revealEls = document.querySelectorAll(".reveal");
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  revealEls.forEach(function (el) { io.observe(el); });
+})();
+</script>
 
 </body>
 </html>
