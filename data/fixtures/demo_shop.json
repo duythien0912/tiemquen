@@ -1,0 +1,158 @@
+{
+  "shop": {
+    "id": "shop_comtamcoba",
+    "slug": "com-tam-co-ba",
+    "name": "Cơm Tấm Cô Ba",
+    "tagline": "Cơm tấm than hoa, chuẩn vị Sài Gòn",
+    "phone": "0909123456",
+    "zalo": "0909123456",
+    "address": "12 Nguyễn Đình Chiểu, P. Đa Kao, Q.1, TP.HCM",
+    "hours": "06:00-14:00, T2-T7",
+    "ship_zone": "Bán kính 2km quanh Q.1 (cụm văn phòng Nguyễn Đình Chiểu - Điện Biên Phủ)",
+    "payment": {
+      "cod": true,
+      "vietqr": {
+        "bank": "VCB",
+        "account": "0071000123456",
+        "account_name": "TRAN THI BA",
+        "enabled_after_n_orders": 3
+      }
+    },
+    "direct_discount_pct": 12,
+    "theme": {
+      "seed_colors": ["#B7410E", "#F5E6C8", "#2F4A34", "#FFB84C"]
+    }
+  },
+  "menu": {
+    "sections": [
+      {
+        "id": "sec_comtam",
+        "title": "Cơm tấm",
+        "items": [
+          "dish_suon_nuong",
+          "dish_suon_bi_cha",
+          "dish_ga_nuong",
+          "dish_suon_trung",
+          "dish_dac_biet"
+        ]
+      },
+      {
+        "id": "sec_monthem",
+        "title": "Món thêm",
+        "items": ["dish_trung_opla", "dish_cha_trung", "dish_canh_khoqua"]
+      },
+      {
+        "id": "sec_nuoc",
+        "title": "Nước uống",
+        "items": ["dish_tra_da", "dish_nuoc_sam"]
+      }
+    ],
+    "dishes": {
+      "dish_suon_nuong": {
+        "name": "Cơm tấm sườn nướng",
+        "price": 35000,
+        "platform_price": 40000,
+        "desc": "Sườn cốt lết ướp sả nướng than hoa, mỡ hành, đồ chua",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_suon_bi_cha": {
+        "name": "Cơm tấm sườn bì chả",
+        "price": 45000,
+        "platform_price": 52000,
+        "desc": "Đủ bộ sườn - bì - chả trứng hấp, chan nước mắm kẹo",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_ga_nuong": {
+        "name": "Cơm tấm gà nướng mật ong",
+        "price": 38000,
+        "platform_price": 44000,
+        "desc": "Đùi gà góc tư nướng mật ong, da giòn",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": true
+      },
+      "dish_suon_trung": {
+        "name": "Cơm tấm sườn trứng ốp la",
+        "price": 42000,
+        "platform_price": 48000,
+        "desc": "Sườn nướng kèm trứng ốp la lòng đào",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_dac_biet": {
+        "name": "Cơm tấm đặc biệt Cô Ba",
+        "price": 55000,
+        "platform_price": 63000,
+        "desc": "Sườn + bì + chả + trứng + lạp xưởng, chỉ bán tại tiệm",
+        "direct_only": true,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_trung_opla": {
+        "name": "Trứng ốp la",
+        "price": 6000,
+        "platform_price": 8000,
+        "desc": "Thêm trứng ốp la lòng đào",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_cha_trung": {
+        "name": "Chả trứng hấp",
+        "price": 10000,
+        "platform_price": 12000,
+        "desc": "Chả trứng hấp nhà làm, cắt lát",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_canh_khoqua": {
+        "name": "Canh khổ qua nhồi thịt",
+        "price": 15000,
+        "platform_price": 17000,
+        "desc": "Canh khổ qua nhồi thịt nấu mỗi sáng, hết là thôi",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": true,
+        "almost_out": false
+      },
+      "dish_tra_da": {
+        "name": "Trà đá",
+        "price": 3000,
+        "platform_price": 5000,
+        "desc": "Trà đá miễn phí khi ăn tại tiệm",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      },
+      "dish_nuoc_sam": {
+        "name": "Nước sâm lạnh",
+        "price": 10000,
+        "platform_price": 12000,
+        "desc": "Nước sâm nhà nấu, giải nhiệt trưa nắng",
+        "direct_only": false,
+        "hidden": false,
+        "sold_out": false,
+        "almost_out": false
+      }
+    }
+  },
+  "source": {
+    "type": "manual",
+    "imported_at": "2026-07-14T08:00:00+07:00",
+    "confidence": 100
+  }
+}

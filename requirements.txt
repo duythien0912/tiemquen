@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+pytest
+httpx
+jsonschema
+qrcode[pil]
+pillow
+reportlab
+google-genai
+beautifulsoup4
+requests
