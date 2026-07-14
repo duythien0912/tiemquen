@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiệm Quen — Tiệm quen, kêu là có.</title>
+<meta name="description" content="Biến tờ rơi giấy thành kênh đặt hàng riêng của quán: khách quét QR, đặt trong 3 chạm — không app, không đăng nhập. Miễn phí cho quán đầu tiên của bạn.">
+<style>
+  :root{
+    --kem:#FFF8F0; --giay:#FFFFFF; --than:#231F1B; --nau:#5C5148;
+    --gach:#E4572E; --gach-dam:#C7431D; --gach-nhat:#FCE9E1;
+    --la:#5E7B48; --la-nhat:#EDF2E5;
+    --vang:#F2B705; --vang-nhat:#FDF3D7;
+    --line:#EFE4D8;
+    --radius:16px; --maxw:1080px;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--kem);color:var(--than);font-family:var(--sans);
+    font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--gach);text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+  /* Nav */
+  nav{position:sticky;top:0;background:rgba(255,248,240,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);z-index:10}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .logo{font-weight:800;font-size:20px;letter-spacing:-.01em}
+  .logo .dot{color:var(--gach)}
+  .nav-links{display:flex;gap:22px;align-items:center;font-size:15px}
+  .nav-links a{color:var(--nau)}
+  .btn{display:inline-block;background:var(--gach);color:#fff;font-weight:700;
+    border-radius:12px;padding:12px 22px;font-size:16px;border:none;cursor:pointer;
+    transition:background .15s}
+  .btn:hover{background:var(--gach-dam)}
+  .btn.big{padding:16px 30px;font-size:18px}
+  .btn.ghost{background:transparent;color:var(--gach);border:2px solid var(--gach)}
+
+  /* Hero */
+  .hero{padding:72px 0 56px}
+  .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
+  .kicker{display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--gach);background:var(--gach-nhat);
+    border-radius:20px;padding:5px 14px;margin-bottom:18px}
+  h1{font-size:46px;line-height:1.12;letter-spacing:-.02em;margin:0 0 18px;font-weight:800}
+  h1 em{font-style:normal;color:var(--gach)}
+  .sub{font-size:19px;color:var(--nau);margin:0 0 28px;max-width:34em}
+  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .hero-note{font-size:14px;color:var(--nau);margin-top:14px}
+
+  /* Phone mockup */
+  .phone{width:290px;margin:0 auto;background:var(--than);border-radius:36px;padding:12px;
+    box-shadow:0 24px 60px rgba(35,31,27,.18)}
+  .screen{background:var(--giay);border-radius:26px;overflow:hidden;font-size:13px}
+  .scr-head{background:linear-gradient(135deg,var(--gach),#F07B4F);color:#fff;padding:16px 16px 12px}
+  .scr-head .shop{font-weight:800;font-size:15px}
+  .scr-head .tag{font-size:11px;opacity:.9}
+  .scr-body{padding:10px 12px 12px}
+  .dish{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  .dish.hi{border-color:var(--gach);background:var(--gach-nhat)}
+  .dish .n{font-weight:700}
+  .dish .p{font-family:var(--mono);font-size:12px;color:var(--nau);white-space:nowrap}
+  .dish .p b{color:var(--gach);font-size:13px}
+  .strike{text-decoration:line-through;opacity:.6}
+  .scr-cta{background:var(--gach);color:#fff;text-align:center;font-weight:800;
+    border-radius:10px;padding:10px;margin-top:4px}
+  .scr-foot{text-align:center;font-size:10.5px;color:var(--nau);padding:8px 0 4px}
+
+  /* Sections */
+  section{padding:64px 0}
+  section.alt{background:var(--giay);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  h2{font-size:32px;letter-spacing:-.015em;margin:0 0 10px;font-weight:800}
+  .lead{color:var(--nau);font-size:18px;margin:0 0 36px;max-width:38em}
+
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{background:var(--giay);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+  section.alt .card{background:var(--kem)}
+  .card .ico{font-size:28px;margin-bottom:10px}
+  .card h3{margin:0 0 8px;font-size:18px}
+  .card p{margin:0;color:var(--nau);font-size:15.5px}
+
+  /* Steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:step}
+  .step{background:var(--giay);border:1px solid var(--line);border-radius:var(--radius);
+    padding:26px 24px;position:relative}
+  .step::before{counter-increment:step;content:counter(step);position:absolute;top:-16px;left:20px;
+    width:34px;height:34px;border-radius:50%;background:var(--gach);color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:16px}
+  .step h3{margin:8px 0 8px;font-size:17px}
+  .step p{margin:0;color:var(--nau);font-size:15px}
+  .step .t{font-family:var(--mono);font-size:11.5px;color:var(--la);margin-top:10px;display:block}
+
+  /* Compare table */
+  .compare{width:100%;border-collapse:collapse;background:var(--giay);border-radius:var(--radius);
+    overflow:hidden;border:1px solid var(--line)}
+  .compare th{padding:16px 18px;text-align:left;font-size:15px}
+  .compare th:first-child{background:var(--kem);color:var(--nau);width:50%}
+  .compare th:last-child{background:var(--gach);color:#fff}
+  .compare td{padding:14px 18px;border-top:1px solid var(--line);font-size:15.5px;vertical-align:top}
+  .compare td:first-child{color:var(--nau);background:var(--kem)}
+  .compare td:last-child{font-weight:600}
+
+  /* Feature split */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
+  .split ul{margin:0;padding:0;list-style:none}
+  .split li{padding:10px 0 10px 34px;position:relative;color:var(--nau);font-size:16px}
+  .split li::before{content:"✓";position:absolute;left:0;top:9px;width:24px;height:24px;
+    border-radius:50%;background:var(--la-nhat);color:var(--la);font-weight:800;font-size:13px;
+    display:flex;align-items:center;justify-content:center}
+  .split li b{color:var(--than)}
+
+  /* Group order chat mock */
+  .chat{background:var(--giay);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .msg{max-width:85%;background:var(--kem);border:1px solid var(--line);border-radius:14px;
+    padding:10px 14px;margin-bottom:10px;font-size:14px}
+  .msg .who{font-weight:700;font-size:12.5px;color:var(--gach)}
+  .msg.me{margin-left:auto;background:var(--la-nhat);border-color:#DDE6D0}
+  .msg .amt{font-family:var(--mono);font-size:12.5px;color:var(--nau)}
+
+  /* Pricing */
+  .price-box{background:var(--giay);border:2px solid var(--gach);border-radius:var(--radius);
+    padding:36px;text-align:center;max-width:520px;margin:0 auto}
+  .price-box .p0{font-size:52px;font-weight:800;color:var(--gach);line-height:1;margin:8px 0}
+  .price-box .per{color:var(--nau);font-size:15px}
+  .price-note{text-align:center;color:var(--nau);font-size:14.5px;margin-top:16px}
+
+  /* FAQ */
+  details{background:var(--giay);border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px;margin-bottom:10px}
+  summary{font-weight:700;cursor:pointer;font-size:16px}
+  details p{color:var(--nau);margin:10px 0 0;font-size:15.5px}
+
+  /* Final CTA */
+  .final{background:var(--than);color:#fff;text-align:center;padding:72px 24px;border-radius:24px;
+    margin:0 24px 64px}
+  .final h2{color:#fff;font-size:36px}
+  .final p{color:#CFC6BD;font-size:18px;margin:0 0 28px}
+  .final .qr-line{font-family:var(--mono);letter-spacing:.2em;font-size:13px;color:var(--vang);
+    text-transform:uppercase;margin-bottom:10px}
+
+  footer{padding:0 0 44px;color:var(--nau);font-size:14px}
+  .foot-in{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    border-top:1px solid var(--line);padding-top:22px}
+
+  @media(max-width:860px){
+    .hero-grid,.split{grid-template-columns:1fr}
+    .grid3,.steps{grid-template-columns:1fr}
+    h1{font-size:34px} h2{font-size:26px}
+    .nav-links a.hide-m{display:none}
+    .phone{margin-top:8px}
+    .steps{row-gap:30px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <div class="logo">Tiệm<span class="dot">Quen</span></div>
+    <div class="nav-links">
+      <a class="hide-m" href="#cach-hoat-dong">Cách hoạt động</a>
+      <a class="hide-m" href="#to-roi">Tờ rơi 2.0</a>
+      <a class="hide-m" href="#gia">Bảng giá</a>
+      <a class="btn" href="#dang-ky">Tạo tiệm miễn phí</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="kicker">Kênh đặt hàng riêng của quán</span>
+      <h1>Tiệm quen,<br><em>kêu là có.</em></h1>
+      <p class="sub">Biến tờ rơi giấy thành kênh đặt hàng thường trực: khách đói nhìn tờ rơi
+        trên bàn, tủ lạnh, pantry văn phòng — quét QR, đặt trong <b>3 chạm</b>.
+        Không cài app, không đăng nhập. Đơn về thẳng quán, tiền về thẳng tài khoản quán.</p>
+      <div class="hero-ctas">
+        <a class="btn big" href="#dang-ky">Tạo tiệm cho quán của bạn — miễn phí</a>
+        <a class="btn ghost" href="#cach-hoat-dong">Xem 10 phút lên tiệm</a>
+      </div>
+      <p class="hero-note">Dành cho quán cơm, bún, đồ uống gần cụm văn phòng — đã có khách quen đặt lặp lại mỗi trưa.</p>
+    </div>
+    <div class="phone" aria-hidden="true">
+      <div class="screen">
+        <div class="scr-head">
+          <div class="shop">Cơm Tấm Cô Ba</div>
+          <div class="tag">Tiệm quen, kêu là có · giao khu Bến Thành</div>
+        </div>
+        <div class="scr-body">
+          <div class="dish hi">
+            <div><div class="n">↻ Đặt lại cơm sườn hôm qua?</div><div class="p">1 chạm · trả khi nhận</div></div>
+            <div class="p"><b>35k</b></div>
+          </div>
+          <div class="dish">
+            <div><div class="n">Combo trưa văn phòng</div><div class="p">cơm + canh + trà đá</div></div>
+            <div class="p"><span class="strike">52k</span> <b>40k</b></div>
+          </div>
+          <div class="dish">
+            <div><div class="n">Cơm gà xối mỡ</div></div>
+            <div class="p"><b>38k</b></div>
+          </div>
+          <div class="scr-cta">Đặt cho cả phòng →</div>
+          <div class="scr-foot">Tạo tiệm cho quán của bạn — miễn phí</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Quán đang nuôi app, hay app đang nuôi quán?</h2>
+    <p class="lead">Ba cái đau quen thuộc của quán bán qua sàn — Tiệm Quen sinh ra để gỡ đúng ba cái đó.</p>
+    <div class="grid3">
+      <div class="card">
+        <div class="ico">🧾</div>
+        <h3>Hoa hồng 25–30% mỗi đơn</h3>
+        <p>Bán 40k, về tay chưa tới 30k. Biên mỏng của quán cơm không gánh nổi — trong khi khách trưa
+           của bạn đặt lặp lại 90% quanh vài món quen.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔒</div>
+        <h3>Khách là của app, không phải của quán</h3>
+        <p>Không số điện thoại, không lịch sử đơn, không kênh chăm lại. Khách quen 3 năm vẫn là
+           "khách lạ" mỗi lần mở app.</p>
+      </div>
+      <div class="card">
+        <div class="ico">💬</div>
+        <h3>Đơn Zalo chốt tay, không menu, không nhắc tiền</h3>
+        <p>Khách nhắn "cho 2 cơm sườn nha", quán tự cộng tiền, tự nhớ ai chưa chuyển khoản.
+           Đơn nhóm văn phòng thì trưởng kèo è cổ đi đòi.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="to-roi">
+  <div class="wrap">
+    <h2>Tờ rơi 2.0 — tờ giấy cũ, sức mạnh mới</h2>
+    <p class="lead">In 1 lần, nội dung sống mãi: QR tĩnh nhưng menu, giá, món hết sau QR cập nhật realtime.</p>
+    <table class="compare">
+      <thead><tr><th>Tờ rơi cũ</th><th>Tờ rơi 2.0 của Tiệm Quen</th></tr></thead>
+      <tbody>
+        <tr><td>Nhìn xong vứt</td><td>Đáng giữ: menu + giá thật, thiết kế đẹp sinh riêng theo quán</td></tr>
+        <tr><td>Muốn đặt phải gọi điện</td><td>Quét QR → trang đặt món 3 chạm, không cài app, không đăng nhập</td></tr>
+        <tr><td>Nội dung chết, đổi giá phải in lại</td><td>Giấy in 1 lần — menu/giá sau QR sửa 1 chỗ là cập nhật, hết món tự ẩn</td></tr>
+        <tr><td>Không biết dán đâu hiệu quả</td><td>Mỗi batch in 1 mã QR riêng → biết tờ ở pantry nào ra bao nhiêu đơn</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="cach-hoat-dong">
+  <div class="wrap">
+    <h2>10 phút lên tiệm, 3 bước</h2>
+    <p class="lead">Không cần biết công nghệ. Có menu trên Grab/ShopeeFood hoặc một tấm hình chụp menu là đủ.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Đưa menu cho Tiệm Quen</h3>
+        <p>Dán link quán trên sàn, hoặc chụp màn hình menu gửi lên. Hệ thống tự đọc món, giá, ảnh, giờ mở cửa.</p>
+        <span class="t">~2 phút</span>
+      </div>
+      <div class="step">
+        <h3>Duyệt lại giá</h3>
+        <p>Không mất hoa hồng nên đa số quán giảm 10–15% cho đơn trực tiếp. Sửa giá, ẩn món,
+           thêm món "chỉ bán tại tiệm" — vài cú chạm.</p>
+        <span class="t">~3 phút</span>
+      </div>
+      <div class="step">
+        <h3>Nhận web tiệm + bộ tờ rơi in</h3>
+        <p>Trang đặt món riêng của quán + tờ rơi 3 cỡ (A5 nhét túi đơn, A4 dán pantry, sticker tủ lạnh)
+           — file PDF chuẩn in, thiết kế sinh riêng theo quán.</p>
+        <span class="t">~5 phút</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap split">
+    <div>
+      <h2>Đơn nhóm văn phòng — kèo trưa hết cực</h2>
+      <p class="lead" style="margin-bottom:20px">Một người quét QR ở pantry, cả phòng tự chọn món vào chung một đơn.</p>
+      <ul>
+        <li><b>Không chuyển tiếp screenshot menu</b> — share 1 link vào group Zalo là xong</li>
+        <li><b>1 đơn, 1 ship</b> — chốt giờ, quán nhận một đơn gọn thay vì 8 tin nhắn lẻ</li>
+        <li><b>Chia tiền tự động</b> — từng người thấy phần mình + mã VietQR hoàn đúng số tiền cho người trả hộ</li>
+        <li><b>Hệ thống đi nhắc chuyển khoản giùm</b> — trưởng kèo khỏi làm "người xấu"</li>
+      </ul>
+    </div>
+    <div class="chat" aria-hidden="true">
+      <div class="msg"><div class="who">Linh</div>Cơm gà xối mỡ <div class="amt">38.000đ · đã chuyển ✓</div></div>
+      <div class="msg me"><div class="who">Tuấn</div>Bún thịt nướng, ít nước mắm <div class="amt">35.000đ · chưa chuyển</div></div>
+      <div class="msg"><div class="who">Tiệm Quen</div>Kèo chốt 11:15 · 5 người · 187.000đ — QR hoàn tiền cho chị Hoa đã gửi từng người 👌</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <div class="card" style="padding:28px" aria-hidden="true">
+      <h3 style="margin-top:0">📊 Đơn theo tờ rơi — tuần này</h3>
+      <p style="font-family:var(--mono);font-size:14px;line-height:2.1;margin:0;color:var(--nau)">
+        A4 · pantry toà Bitexco &nbsp;<b style="color:var(--gach)">▮▮▮▮▮▮▮▮ 23 đơn</b><br>
+        A5 · túi đơn sàn &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="color:var(--gach)">▮▮▮▮▮ 14 đơn</b><br>
+        Sticker · tủ lạnh VP &nbsp;&nbsp;&nbsp;<b style="color:var(--gach)">▮▮ 6 đơn</b>
+      </p>
+    </div>
+    <div>
+      <h2>Biết tờ nào ra tiền, in thêm đúng chỗ</h2>
+      <p class="lead" style="margin-bottom:20px">Mỗi đợt in mang một mã QR riêng — quán thấy rõ chỗ dán nào ra đơn.</p>
+      <ul>
+        <li><b>Đơn báo về tức thì</b> — quán chưa xem trong 2 phút, hệ thống nhắn SMS ngay; khách thấy trạng thái "quán đã thấy đơn"</li>
+        <li><b>Trả khi nhận là mặc định</b> — khách không phải trả trước, tiền luôn vào thẳng quán, Tiệm Quen không giữ tiền hộ</li>
+        <li><b>Sổ sách tự động</b> — báo cáo doanh thu xuất được để quán kê khai, minh bạch, khỏi ghi tay</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="gia">
+  <div class="wrap">
+    <h2 style="text-align:center">Bảng giá thẳng như giá cơm</h2>
+    <p class="lead" style="text-align:center;margin-left:auto;margin-right:auto">Không thu % trên đơn. Đơn của quán là của quán.</p>
+    <div class="price-box">
+      <div style="font-weight:700;color:var(--nau)">Giai đoạn đầu</div>
+      <div class="p0">0đ</div>
+      <div class="per">Trọn bộ: web tiệm + tờ rơi 3 cỡ + đơn nhóm + báo đơn tức thì.<br>Tặng kèm 100 tờ in đợt đầu cho quán pilot.</div>
+      <div style="margin-top:22px"><a class="btn big" href="#dang-ky">Tạo tiệm miễn phí</a></div>
+    </div>
+    <p class="price-note">Về sau: 1 tiệm luôn miễn phí; gói nâng cao (nhiều chi nhánh, tên miền riêng, phân tích sâu)
+      khoảng 200–300k/tháng — báo trước, không tự động trừ.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap" style="max-width:760px">
+    <h2>Hỏi nhanh đáp gọn</h2>
+    <details>
+      <summary>Tiệm Quen có giữ tiền của quán không?</summary>
+      <p>Không. Mặc định khách trả khi nhận (tiền mặt hoặc chuyển khoản lúc giao). Khách quen có thể
+         chuyển khoản trước qua VietQR — tiền vào thẳng tài khoản ngân hàng của quán, không qua ví trung gian nào.</p>
+    </details>
+    <details>
+      <summary>Khách có phải cài app không?</summary>
+      <p>Không. Quét QR là ra trang đặt món, mở nhanh dưới 2 giây kể cả mạng 4G yếu. Không tải app,
+         không tạo tài khoản, không mật khẩu.</p>
+    </details>
+    <details>
+      <summary>Quán không rành công nghệ có dùng được không?</summary>
+      <p>Được. Lên tiệm chỉ cần dán link hoặc gửi hình menu. Hằng ngày quán chỉ làm hai việc quen thuộc:
+         xem đơn báo về (như xem tin nhắn) và bấm "hết món" khi món hết.</p>
+    </details>
+    <details>
+      <summary>Ai giao hàng?</summary>
+      <p>Quán tự giao trong bán kính quen (1–2km quanh cụm văn phòng) — đúng tệp khách trưa đặt lặp lại.
+         Quán nào cần có thể tự gọi Grab Express/Ahamove cho đơn xa.</p>
+    </details>
+    <details>
+      <summary>Sao phải giảm giá cho đơn trực tiếp?</summary>
+      <p>Không bắt buộc — nhưng vì không mất hoa hồng, đa số quán chọn giảm 10–15% mà vẫn lời hơn bán qua sàn.
+         Giá tốt hơn là lý do lớn nhất để khách đổi thói quen quét QR thay vì mở app.</p>
+    </details>
+    <details>
+      <summary>Dữ liệu khách hàng thuộc về ai?</summary>
+      <p>Thuộc về quán. Tiệm Quen chỉ xử lý thay, thu thông tin ở mức tối thiểu để giao hàng (tên, SĐT, địa chỉ)
+         và có trang chính sách + ô đồng ý rõ ràng theo Luật Bảo vệ dữ liệu cá nhân.</p>
+    </details>
+  </div>
+</section>
+
+<div class="final" id="dang-ky">
+  <div class="qr-line">Thèm? Quét.</div>
+  <h2>Tiệm của mình. Khách của mình.</h2>
+  <p>5 suất pilot đầu tiên quanh cụm văn phòng — miễn phí trọn bộ, tặng 100 tờ rơi in sẵn.</p>
+  <a class="btn big" href="https://zalo.me/" rel="noopener">Nhắn Zalo giữ suất pilot</a>
+</div>
+
+<footer>
+  <div class="wrap foot-in">
+    <div><b>Tiệm<span style="color:var(--gach)">Quen</span></b> · tiemquen.com — Tiệm quen, kêu là có.</div>
+    <div><a href="#">Chính sách dữ liệu</a> · <a href="#">Điều khoản</a> · <a href="#dang-ky">Tạo tiệm miễn phí</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
