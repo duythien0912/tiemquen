@@ -127,7 +127,7 @@
   html.js #about p.body span.ch{ opacity: .2; transition: opacity .1s linear; }
 
   /* ===== Cách vận hành (Features) ===== */
-  #features{ position: relative; background: var(--bg); padding: clamp(3rem,7vw,6rem) 1rem; overflow: hidden; }
+  #features{ position: relative; background: var(--bg); padding: clamp(1rem,1vw,1rem) 1rem; overflow: hidden; }
   #features .noise-features{ position: absolute; inset: 0; pointer-events: none; }
   #features .inner{ position: relative; z-index: 2; max-width: 72rem; margin: 0 auto; }
   #features .head{ text-align: center; margin-bottom: clamp(2rem,5vw,3.2rem); }
@@ -141,12 +141,13 @@
   #features .head .line2{ color: var(--gray-mo); margin-top: .3rem; }
 
   #features .grid{ display: grid; grid-template-columns: 1fr; gap: 1rem; }
-  .fcard{ background: var(--card2); border: 1px solid var(--line); border-radius: 1.4rem; padding: 1.6rem; }
+  .fcard{ background: var(--card2); border: 1px solid var(--line); border-radius: 1.4rem; padding: 1.6rem;
+    display: flex; flex-direction: column; }
   html.js .fcard{ opacity: 0; transform: scale(.95);
     transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1); }
   html.js .fcard.in{ opacity: 1; transform: scale(1); }
   .fcard.showcase{ background: linear-gradient(160deg, #C7431D 0%, #7A2A10 65%, #1c1310 100%);
-    display: flex; align-items: flex-end; min-height: 220px; }
+    display: flex; flex-direction: row; align-items: flex-end; min-height: 220px; }
   .fcard.showcase p{ font-weight: 700; font-size: 1.15rem; color: var(--cream); }
   .fcard .ico{ width: 2.6rem; height: 2.6rem; color: var(--gach-sang); margin-bottom: 1rem; }
   .fcard .num{ font-family: var(--mono); color: var(--gray-mo); font-size: .8rem; }
@@ -154,10 +155,15 @@
   .fcard ul{ list-style: none; display: flex; flex-direction: column; gap: .6rem; margin-bottom: 1.1rem; }
   .fcard li{ display: flex; gap: .55rem; align-items: flex-start; font-size: .88rem; color: var(--gray-mo); }
   .fcard li svg{ width: 1rem; height: 1rem; color: var(--gach-sang); flex: none; margin-top: .15rem; }
+  .fcard details{ margin-top: auto; }
   .learn-link{ display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--cream);
-    text-decoration: none; }
+    cursor: pointer; list-style: none; }
+  .learn-link::-webkit-details-marker{ display: none; }
   .learn-link svg{ width: .95rem; height: .95rem; transition: transform .2s; }
   .learn-link:hover svg{ transform: rotate(-45deg) translate(2px,-2px); }
+  details[open] .learn-link svg{ transform: rotate(90deg); }
+  details[open] .learn-link:hover svg{ transform: rotate(90deg); }
+  .fcard .detail{ font-size: .85rem; color: var(--gray-mo); line-height: 1.6; margin-top: .8rem; }
 
   /* ===== Footer ===== */
   footer{ padding: 2.2rem 1.25rem 2.6rem; color: var(--gray-mo); font-size: .85rem; }
@@ -287,7 +293,10 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sửa giá, ẩn món trong vài cú chạm</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Web tiệm + tờ rơi ra trong dưới 10 phút</li>
         </ul>
-        <a href="#footer-contact" class="learn-link">Tìm hiểu thêm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></a>
+        <details>
+          <summary class="learn-link">Tìm hiểu thêm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></summary>
+          <p class="detail">Interview agent hỏi thêm 2–3 câu còn thiếu — ship khu nào, trả khi nhận hay chuyển khoản, giảm bao nhiêu cho đơn trực tiếp — rồi sinh luôn web tiệm + tờ rơi 3 cỡ + bản đăng mạng xã hội, không phải làm lại từ đầu.</p>
+        </details>
       </div>
 
       <div class="fcard">
@@ -299,7 +308,10 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Không cài app, không đăng nhập</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Nhớ đơn cũ — đặt lại 1 chạm</li>
         </ul>
-        <a href="#footer-contact" class="learn-link">Tìm hiểu thêm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></a>
+        <details>
+          <summary class="learn-link">Tìm hiểu thêm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></summary>
+          <p class="detail">Trang order đổi theo ngữ cảnh — giờ trưa tự đẩy combo lên đầu, khách cũ thấy ngay nút đặt lại đơn hôm qua. Mặc định trả khi nhận, không ai mất tiền trước; VietQR trả trước chỉ mở cho khách đã đặt thành công nhiều lần.</p>
+        </details>
       </div>
 
       <div class="fcard">
@@ -311,7 +323,10 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Chia tiền tự động + VietQR hoàn tiền người trả hộ</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Hệ thống nhắc chuyển khoản giùm trưởng kèo</li>
         </ul>
-        <a href="#footer-contact" class="learn-link">Tìm hiểu thêm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></a>
+        <details>
+          <summary class="learn-link">Tìm hiểu thêm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></summary>
+          <p class="detail">Share 1 link vào group Zalo, mọi người tự chọn món vào chung một đơn tới giờ chốt. Ai chưa chuyển khoản sẽ được hệ thống nhắc giùm — trưởng kèo khỏi phải làm người đòi nợ.</p>
+        </details>
       </div>
     </div>
   </div>

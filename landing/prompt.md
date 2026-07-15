@@ -103,14 +103,22 @@ Near-black bg + .noise-features wash. Header, two-line multi-style pull-up:
     generic line icon, not a copied icon-library asset), 4-item checklist
     (orange check glyph): "Dán link Grab/ShopeeFood hoặc gửi ảnh menu" ·
     "Hệ thống tự đọc món, giá, ảnh, giờ mở cửa" · "Sửa giá, ẩn món trong vài cú
-    chạm" · "Web tiệm + tờ rơi ra trong dưới 10 phút". "Tìm hiểu thêm" link with
-    arrow rotated -45° on hover.
+    chạm" · "Web tiệm + tờ rơi ra trong dưới 10 phút".
   Card 3 — "Đặt trong 3 chạm" (02): inline-SVG QR-corner glyph, 3-item checklist:
     "Quét QR → chọn món → xác nhận" · "Không cài app, không đăng nhập" ·
     "Nhớ đơn cũ — đặt lại 1 chạm".
   Card 4 — "Đơn nhóm văn phòng" (03): inline-SVG people glyph, 3-item checklist:
     "1 người quét, cả phòng tự chọn món vào chung 1 đơn" · "Chia tiền tự động +
     VietQR hoàn tiền người trả hộ" · "Hệ thống nhắc chuyển khoản giùm trưởng kèo".
+
+  Each of cards 2–4 ends in a native `<details><summary class="learn-link">Tìm
+    hiểu thêm</summary><p class="detail">...</p></details>` disclosure — NOT a
+    dead link to the footer. Arrow rotates -45° on hover (closed) and 90° when
+    `details[open]`. Native `<details>` was chosen deliberately: it works with
+    zero JS (keyboard-operable, no custom script needed), consistent with this
+    file's no-JS-content-loss fix below. One extra sentence of real detail per
+    card, grounded in ARCH.md (interview agent's 2–3 questions / context rules
+    for reorder+lunch-combo+COD-default / Zalo group-order + Reminder agent).
 
 FOOTER (not in the original reference — added because this is a real business
   site, not a portfolio teaser): shop name + tagline, Zalo contact CTA, minimal
