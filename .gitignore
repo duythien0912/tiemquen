@@ -5,3 +5,6 @@ data/media/
 .worktrees/
 node_modules/
 .DS_Store
+landing/.review/shots/
+landing/.review/node_modules/
+landing/.review/package-lock.json
