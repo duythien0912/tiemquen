@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tiệm Quen — Tiệm quen, kêu là có.</title>
 <meta name="description" content="Biến tờ rơi giấy thành kênh đặt hàng riêng của quán: khách quét QR, đặt trong 3 chạm — không app, không đăng nhập. Miễn phí cho quán đầu tiên của bạn.">
+<meta name="theme-color" content="#0D0A08">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiNDNzQzMUQiLz48dGV4dCB4PSIzMiIgeT0iNDYiIGZvbnQtZmFtaWx5PSJBcmlhbCxIZWx2ZXRpY2Esc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjgwMCIgZm9udC1zaXplPSIzOCIgZmlsbD0iI0ZGRkZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VDwvdGV4dD48L3N2Zz4=">
+<!-- og:image chưa gắn — cần ảnh thật đã host trên tiemquen.com khi deploy, không dùng data URI vì các nền tảng share (Zalo/FB) không đọc được -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="vi_VN">
+<meta property="og:site_name" content="Tiệm Quen">
+<meta property="og:url" content="https://tiemquen.com">
+<meta property="og:title" content="Tiệm Quen — Tiệm quen, kêu là có.">
+<meta property="og:description" content="Biến tờ rơi giấy thành kênh đặt hàng riêng của quán: khách quét QR, đặt trong 3 chạm — không app, không đăng nhập. Miễn phí cho quán đầu tiên của bạn.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Tiệm Quen — Tiệm quen, kêu là có.">
+<meta name="twitter:description" content="Biến tờ rơi giấy thành kênh đặt hàng riêng của quán: khách quét QR, đặt trong 3 chạm — không app, không đăng nhập.">
 <style>
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
   html, body { overflow-x:hidden; }
@@ -201,6 +213,9 @@
     border-top:1px solid var(--line-soft);padding-top:22px}
   footer a{color:var(--xam)}
 
+  a:focus-visible,.btn:focus-visible,summary:focus-visible{
+    outline:2px solid var(--gach-sang);outline-offset:3px;border-radius:4px}
+
   @media(max-width:768px){
     nav{padding:12px 18px}
     nav .nav-links a.hide-m{display:none}
@@ -230,6 +245,25 @@
     #fixed-cards .card h3{font-size:17px;margin-bottom:6px}
     #fixed-cards .card p{font-size:13px}
     section{padding:64px 0}
+  }
+
+  /* Điện thoại xoay ngang (viewport thấp nhưng RỘNG hơn 768px nên lọt qua breakpoint
+     trên) — vẫn phải rút gọn hero để CTA không rơi khỏi màn hình đầu. */
+  @media(max-height:500px){
+    /* Viewport quá thấp để vừa cả phone mockup lẫn CTA — phone mockup thu nhỏ tới mức
+       không đọc nổi mà vẫn không đủ chỗ, nên ẩn hẳn, giữ text hero + CTA rõ ràng thay vào đó. */
+    nav{padding:8px 18px}
+    #hero{min-height:100svh;padding-top:52px}
+    #hero .hero-spacer{flex:0 1 auto}
+    #hero .hero-visual{display:none}
+    #hero .subtitle{font-size:11px;margin-bottom:6px}
+    #hero h1{font-size:clamp(22px,4.2vw,30px);line-height:1.1}
+    #hero .sub{font-size:13.5px;margin-top:8px;line-height:1.45;max-width:32em}
+    #hero .ctas{margin-top:14px;gap:10px;flex-direction:row}
+    #hero .code-box{padding:8px 16px}
+    #hero .btn.big{padding:10px 20px;font-size:14.5px}
+    #hero .bounce-arrow{margin-top:10px;padding-bottom:10px}
+    #hero .bounce-arrow svg{width:18px;height:18px}
   }
 </style>
 </head>
