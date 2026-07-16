@@ -1,8 +1,10 @@
 """Tiệm Quen agent server — FastAPI app factory (ENGINE-SPEC §3).
 
 Phase 1 (foundation): /health + minimal shops CRUD + static mounts.
-Later phases add agent routes (import, interview, storefront, flyer,
-order-parse, reminder) under deterministic prefixes.
+Phase (orders): buyer page + order state machine + notify + group orders +
+order-parse, all under the ZERO-LLM buyer path (ENGINE-SPEC §0/§8) — the
+only LLM call anywhere in this file is /api/import and /api/shops/{slug}/compose,
+both compose/seller-side, never on the buyer's click-to-checkout path.
 
 Run:
     ./.venv/bin/uvicorn agents.tiemquen_agent.server:app --reload
@@ -11,20 +13,32 @@ Run:
 from __future__ import annotations
 
 import copy
+import json
 import os
 import tempfile
 from pathlib import Path
 from typing import Any
 
 import jsonschema
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from agents.tiemquen_agent.agents import import_agent
 from agents.tiemquen_agent.agents.html_parse import ImportFallbackToOCR
+from agents.tiemquen_agent.agents.order_parse_agent import parse_order_text
 from compose.cache import ComposeCache
-from compose.composer import compose_all_variants
+from compose.composer import VARIANTS, compose_all_variants
+from infra.group_orders import GroupOrderError, GroupOrderNotFoundError, GroupOrderStore
+from infra.notify import NotifyPipeline
+from infra.orders import (
+    STATUS_MESSAGES,
+    OrderError,
+    OrderNotFoundError,
+    OrderStore,
+    OrderTransitionError,
+)
 from infra.publish import SlugRegistry
 from infra.storage import LocalJSONStorage, Storage
 from shared.menu_format import apply_menu_edits, load_demo_fixture, validate_menu, MenuEditError
@@ -51,6 +65,9 @@ def create_app(
 
     registry = SlugRegistry(storage)
     cache = ComposeCache(composed_dir)
+    order_store = OrderStore(storage)
+    group_store = GroupOrderStore(storage)
+    notify_pipeline = NotifyPipeline()
     app = FastAPI(title="Tiệm Quen agent server", version="0.1.0")
 
     app.add_middleware(
@@ -317,6 +334,210 @@ def create_app(
         if messages is None:
             raise HTTPException(status_code=404, detail=f"variant {variant!r} not composed yet")
         return messages
+
+    # ----------------------------------------------------------------- orders
+    # ENGINE-SPEC §8, ARCH §3.2. ZERO LLM on every route below — buyer is a
+    # plain REST client (buyer/order.js), seller ack/transition is the same.
+
+    def _price_items(dishes: dict[str, Any], raw_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Server is the price authority — never trust client-sent prices.
+        Also the sold-out gate: a race where the buyer's cached page still
+        shows a dish that just sold out gets caught HERE, not client-side."""
+        if not raw_items:
+            raise HTTPException(status_code=422, detail="order cần ít nhất 1 món")
+        items: list[dict[str, Any]] = []
+        for raw in raw_items:
+            dish_id = raw.get("dish_id")
+            dish = dishes.get(dish_id)
+            if dish is None:
+                raise HTTPException(status_code=422, detail=f"món {dish_id!r} không tồn tại")
+            qty = int(raw.get("qty", 1))
+            if qty <= 0:
+                raise HTTPException(status_code=422, detail=f"qty phải > 0 cho {dish_id!r}")
+            if dish.get("sold_out"):
+                raise HTTPException(status_code=409, detail=f"món {dish['name']!r} đã hết")
+            items.append({"dish_id": dish_id, "name": dish["name"], "price": dish["price"], "qty": qty})
+        return items
+
+    def _require_customer(customer: dict[str, Any]) -> None:
+        missing = [f for f in ("name", "phone", "address") if not customer.get(f)]
+        if missing:
+            raise HTTPException(status_code=422, detail=f"customer thiếu: {missing}")
+
+    def _seller_phone(shop_doc: dict[str, Any]) -> str:
+        shop = shop_doc["shop"]
+        return shop.get("phone") or shop.get("zalo") or "unknown"
+
+    @app.post("/orders", status_code=201)
+    async def create_order(body: dict[str, Any], background_tasks: BackgroundTasks) -> dict[str, Any]:
+        """COD checkout (default payment, ARCH §3.2). Fires the notify chain
+        immediately, then schedules the ack-timeout SMS-fallback watcher —
+        SLA #1: quán không ack trong ACK_TIMEOUT_SECONDS -> SMS."""
+        slug = body.get("slug")
+        if not slug:
+            raise HTTPException(status_code=422, detail="cần 'slug'")
+        doc = _resolve_shop(slug)
+        items = _price_items(doc["menu"]["dishes"], body.get("items") or [])
+        customer = body.get("customer") or {}
+        _require_customer(customer)
+
+        order = order_store.create(
+            shop_id=doc["shop"]["id"],
+            shop_slug=slug,
+            items=items,
+            customer=customer,
+            batch_id=body.get("batch_id"),
+            variant=body.get("variant"),
+            payment_method=body.get("payment_method", "cod"),
+        )
+        seller_phone = _seller_phone(doc)
+        notify_pipeline.notify_created(seller_phone, order)
+        background_tasks.add_task(
+            notify_pipeline.watch_ack,
+            seller_phone,
+            order,
+            lambda: order_store.is_seller_seen(order["id"]),
+        )
+        return order
+
+    @app.get("/orders/{order_id}")
+    def get_order(order_id: str) -> dict[str, Any]:
+        try:
+            return order_store.get(order_id)
+        except OrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+
+    @app.get("/orders/{order_id}/status")
+    def get_order_status(order_id: str) -> dict[str, Any]:
+        """Buyer polling target — the only thing buyer/order.js reads to show
+        'quán đã thấy đơn' (ENGINE-SPEC §8)."""
+        try:
+            order = order_store.get(order_id)
+        except OrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return {"order_id": order_id, "status": order["status"], "message": STATUS_MESSAGES.get(order["status"], "")}
+
+    @app.post("/orders/{order_id}/ack")
+    def ack_order(order_id: str) -> dict[str, Any]:
+        """Seller app: created -> seller_seen. Idempotent (safe to double-tap)."""
+        try:
+            return order_store.ack(order_id)
+        except OrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+
+    @app.post("/orders/{order_id}/transition")
+    def transition_order(order_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Generic seller-dashboard transition: confirmed/delivering/done/
+        cancelled/no_show_flagged. Illegal moves -> 409 (shared/order_states)."""
+        to = body.get("to")
+        if not to:
+            raise HTTPException(status_code=422, detail="cần 'to'")
+        try:
+            return order_store.transition(order_id, to)
+        except OrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except OrderTransitionError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        except OrderError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    @app.post("/orders/parse-text")
+    def parse_text_endpoint(body: dict[str, Any]) -> dict[str, Any]:
+        """ARCH §3.2 'Đặt qua Zalo' reverse path: seller pastes buyer's chat
+        text -> draft the seller still reviews before it becomes a real order."""
+        slug, text = body.get("slug"), body.get("text")
+        if not slug or not text:
+            raise HTTPException(status_code=422, detail="cần 'slug' và 'text'")
+        doc = _resolve_shop(slug)
+        try:
+            return parse_order_text(text, doc)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    # ------------------------------------------------------------ group orders
+    # ARCH §3.3 — office pantry use case.
+
+    @app.post("/group-orders", status_code=201)
+    def create_group_order(body: dict[str, Any]) -> dict[str, Any]:
+        slug = body.get("slug")
+        if not slug:
+            raise HTTPException(status_code=422, detail="cần 'slug'")
+        doc = _resolve_shop(slug)
+        g = group_store.create(doc["shop"]["id"], slug, batch_id=body.get("batch_id"))
+        return {**g, "gid": g["id"], "share_url": f"/g/{g['id']}"}
+
+    @app.get("/group-orders/{gid}")
+    def get_group_order(gid: str) -> dict[str, Any]:
+        try:
+            return group_store.get(gid)
+        except GroupOrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+
+    @app.post("/group-orders/{gid}/members")
+    def add_group_order_member(gid: str, body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            g = group_store.get(gid)
+        except GroupOrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        shop_doc = storage.get(SHOPS_COLLECTION, g["shop_id"])
+        dishes = shop_doc["menu"]["dishes"] if shop_doc else {}
+        items = _price_items(dishes, body.get("items") or [])
+        try:
+            return group_store.add_member_items(gid, body.get("name", ""), items)
+        except GroupOrderError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    @app.post("/group-orders/{gid}/close")
+    def close_group_order(gid: str, body: dict[str, Any], background_tasks: BackgroundTasks) -> dict[str, Any]:
+        """Chốt kèo -> 1 real Order (same notify pipeline as a solo COD order)."""
+        customer = body.get("customer") or {}
+        _require_customer(customer)
+        try:
+            result = group_store.close(
+                gid, order_store, body.get("closer_name", ""), customer, variant=body.get("variant")
+            )
+        except GroupOrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except GroupOrderError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+        shop_doc = storage.get(SHOPS_COLLECTION, result["group_order"]["shop_id"])
+        seller_phone = _seller_phone(shop_doc) if shop_doc else "unknown"
+        order = result["order"]
+        notify_pipeline.notify_created(seller_phone, order)
+        background_tasks.add_task(
+            notify_pipeline.watch_ack, seller_phone, order, lambda: order_store.is_seller_seen(order["id"])
+        )
+        return result
+
+    # ------------------------------------------------------- buyer/group pages
+    # Server-rendered bootstrap: read the committed static HTML, inject a
+    # tiny <script> with slug/gid (+ known variants) before it, return AS-IS
+    # otherwise — buyer/index.html and buyer/group.html do 100% of the work
+    # client-side (ENGINE-SPEC §9, zero LLM, zero templating engine needed).
+
+    def _bootstrapped_html(path: Path, global_name: str, payload: dict[str, Any]) -> HTMLResponse:
+        html = path.read_text(encoding="utf-8")
+        script = f"<script>window.{global_name} = {json.dumps(payload, ensure_ascii=False)};</script>"
+        html = html.replace("<head>", "<head>\n  " + script, 1)
+        return HTMLResponse(html)
+
+    @app.get("/t/{slug}")
+    def buyer_page(slug: str) -> HTMLResponse:
+        _resolve_shop(slug)  # 404 fast if the QR points at an unknown/deleted shop
+        return _bootstrapped_html(
+            REPO_ROOT / "buyer" / "index.html",
+            "__TIEMQUEN__",
+            {"slug": slug, "variants": sorted(VARIANTS)},
+        )
+
+    @app.get("/g/{gid}")
+    def group_order_page(gid: str) -> HTMLResponse:
+        try:
+            group_store.get(gid)
+        except GroupOrderNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return _bootstrapped_html(REPO_ROOT / "buyer" / "group.html", "__TIEMQUEN_GROUP__", {"gid": gid})
 
     # ----------------------------------------------------------- static mounts
     # buyer/ + seller/ are committed static sites; data/media holds rehosted

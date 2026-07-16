@@ -239,6 +239,106 @@ def main() -> int:
 
     asyncio.run(run_import_flow())
 
+    # ---------------------------------------------------------------------
+    step(10, "Order flow: COD order -> notify fired -> ack -> seller_seen -> confirm -> done")
+    # ---------------------------------------------------------------------
+    # ASGITransport awaits BackgroundTasks as part of the request (same as
+    # TestClient) — use a short ack-timeout so this step can't block on the
+    # real 120s default (ENGINE-SPEC §8 tests use 0.1-ish, this smoke too).
+    os.environ["ACK_TIMEOUT_SECONDS"] = "0.05"
+
+    async def run_order_flow() -> None:
+        order_storage = LocalJSONStorage(scratch / "order_flow")
+        app = create_app(storage=order_storage, composed_dir=scratch / "order_flow_composed")
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://smoke") as client:
+            r = await client.post("/api/shops", json=fixture)
+            assert r.status_code == 201, r.text
+            slug = r.json()["shop"]["slug"]
+
+            r = await client.get(f"/t/{slug}")
+            assert r.status_code == 200 and "renderer.js" in r.text
+            ok(f"GET /t/{slug} -> buyer page HTML references renderer.js")
+
+            order_body = {
+                "slug": slug,
+                "batch_id": "office-plaza1",
+                "items": [
+                    {"dish_id": "dish_suon_nuong", "qty": 2},
+                    {"dish_id": "dish_tra_da", "qty": 1},
+                ],
+                "customer": {"name": "An", "phone": "0909000111", "address": "12 Lê Lợi"},
+            }
+            r = await client.post("/orders", json=order_body)
+            assert r.status_code == 201, r.text
+            order = r.json()
+            assert order["status"] == "created"
+            assert order["total"] == 35000 * 2 + 3000
+            ok(
+                f"POST /orders -> created (total={order['total']:,}đ), notify chain fired "
+                "([fcm-stub]/[console] lines above)"
+            )
+
+            r = await client.post(f"/orders/{order['id']}/ack")
+            assert r.status_code == 200 and r.json()["status"] == "seller_seen"
+            r = await client.get(f"/orders/{order['id']}/status")
+            assert r.json()["status"] == "seller_seen" and "thấy đơn" in r.json()["message"]
+            ok("POST /orders/{id}/ack -> seller_seen; buyer status shows 'quán đã thấy đơn'")
+
+            for to in ("confirmed", "delivering", "done"):
+                r = await client.post(f"/orders/{order['id']}/transition", json={"to": to})
+                assert r.status_code == 200 and r.json()["status"] == to, r.text
+            ok("confirmed -> delivering -> done via /orders/{id}/transition")
+
+            r = await client.post(f"/orders/{order['id']}/transition", json={"to": "cancelled"})
+            assert r.status_code == 409  # done is terminal — state machine rejects it
+            ok("illegal transition out of a terminal state -> 409 (shared/order_states)")
+
+            # -----------------------------------------------------------------
+            step(11, "Group order: 3 members, uneven split, 1 real order, 1 ship")
+            # -----------------------------------------------------------------
+            r = await client.post("/group-orders", json={"slug": slug, "batch_id": "office-plaza1"})
+            assert r.status_code == 201, r.text
+            gid = r.json()["gid"]
+
+            r = await client.get(f"/g/{gid}")
+            assert r.status_code == 200 and gid in r.text
+            ok(f"POST /group-orders -> {gid!r}; GET /g/{gid} serves the bootstrap HTML")
+
+            members = {
+                "An": [{"dish_id": "dish_suon_nuong", "qty": 1}],  # 35.000
+                "Binh": [
+                    {"dish_id": "dish_suon_bi_cha", "qty": 1},
+                    {"dish_id": "dish_tra_da", "qty": 2},
+                ],  # 45.000 + 6.000 = 51.000
+                "Chi": [{"dish_id": "dish_ga_nuong", "qty": 3}],  # 38.000 x 3 = 114.000
+            }
+            for name, items in members.items():
+                r = await client.post(f"/group-orders/{gid}/members", json={"name": name, "items": items})
+                assert r.status_code == 200, r.text
+
+            r = await client.post(
+                f"/group-orders/{gid}/close",
+                json={
+                    "closer_name": "An",
+                    "customer": {"name": "An", "phone": "0909000111", "address": "12 Lê Lợi"},
+                },
+            )
+            assert r.status_code == 200, r.text
+            result = r.json()
+            expected_total = 35000 + 51000 + 114000  # NOT evenly divisible by 3 members
+            assert result["order"]["total"] == expected_total
+            assert sum(v["amount"] for v in result["split"].values()) == expected_total
+            assert result["split"]["An"]["is_payer"] is True and "vietqr_placeholder" not in result["split"]["An"]
+            assert result["split"]["Binh"]["amount"] == 51000
+            assert result["split"]["Chi"]["amount"] == 114000
+            ok(
+                f"3-member group order closed -> 1 order total={expected_total:,}đ, "
+                "per-member split sums exactly (no equal-division remainder)"
+            )
+
+    asyncio.run(run_order_flow())
+
     print("\nSMOKE OK — all steps passed.")
     return 0
 

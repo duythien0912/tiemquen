@@ -1,0 +1,161 @@
+/* Tiệm Quen buyer page — theme comes from A2UI /theme (ENGINE-SPEC §6),
+ * applied as CSS variables by index.html. Kept plain (no preprocessor, no
+ * build step) so the whole buyer bundle stays tiny and dependency-free. */
+:root {
+  --tq-bg: #fff8ee;
+  --tq-surface: #ffffff;
+  --tq-text: #24140a;
+  --tq-text-muted: #5a4636;
+  --tq-text-faint: #8a7460;
+  --tq-accent: #b7410e;
+  --tq-accent-text: #ffffff;
+  --tq-success: #1b7a3c;
+  --tq-warn: #b45309;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--tq-bg);
+  color: var(--tq-text);
+}
+
+.tq-page { max-width: 640px; margin: 0 auto; padding-bottom: 96px; }
+
+.tq-hero {
+  padding: 28px 16px 20px;
+  background-color: var(--tq-surface);
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.tq-hero-name { margin: 0 0 4px; font-size: 1.5rem; }
+.tq-hero-tagline, .tq-hero-hours { margin: 2px 0; color: var(--tq-text-muted); font-size: 0.9rem; }
+
+.tq-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin: 6px 16px 0;
+}
+.tq-badge-success { background: color-mix(in srgb, var(--tq-success) 18%, transparent); color: var(--tq-success); }
+.tq-badge-warn { background: color-mix(in srgb, var(--tq-warn) 18%, transparent); color: var(--tq-warn); }
+.tq-badge-info { background: rgba(0, 0, 0, 0.06); color: var(--tq-text-muted); }
+
+.tq-reorder {
+  margin: 12px 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tq-accent) 10%, var(--tq-surface));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tq-reorder-summary { margin: 0; font-size: 0.9rem; }
+.tq-reorder-total { font-weight: 700; color: var(--tq-accent); }
+
+.tq-section { padding: 8px 16px 4px; }
+.tq-section-title { font-size: 1.1rem; margin: 12px 0 8px; }
+.tq-section-sub { margin: 0 0 8px; color: var(--tq-text-faint); font-size: 0.85rem; }
+.tq-grid { display: grid; gap: 10px; }
+
+.tq-dish {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: var(--tq-surface);
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+.tq-dish.tq-sold-out { opacity: 0.55; }
+.tq-dish-img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex: none; }
+.tq-dish-body { flex: 1; min-width: 0; }
+.tq-dish-name { margin: 0; font-size: 1rem; }
+.tq-dish-note { margin: 2px 0; font-size: 0.82rem; color: var(--tq-text-faint); }
+.tq-dish-price-row { display: flex; gap: 8px; align-items: baseline; margin-top: 2px; }
+.tq-dish-price { font-weight: 700; color: var(--tq-accent); }
+.tq-dish-compare { text-decoration: line-through; color: var(--tq-text-faint); font-size: 0.85rem; }
+
+.tq-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--tq-accent);
+  color: var(--tq-accent-text);
+}
+.tq-btn:disabled { background: #ccc; color: #666; cursor: not-allowed; }
+.tq-btn-group { display: block; width: calc(100% - 32px); margin: 10px 16px; }
+.tq-btn-reorder { flex: none; }
+
+.tq-reviews { padding: 6px 16px; color: var(--tq-text-muted); font-size: 0.88rem; }
+.tq-reviews-quote { margin: 4px 0 0; font-style: italic; }
+
+.tq-checkout {
+  margin: 16px;
+  padding: 14px;
+  background: var(--tq-surface);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tq-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--tq-text-muted); }
+.tq-field input, .tq-field textarea {
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.tq-payment { display: flex; gap: 10px; padding: 0 16px; flex-wrap: wrap; }
+.tq-payment-option {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 0.88rem;
+}
+.tq-payment-selected { border-color: var(--tq-accent); color: var(--tq-accent); font-weight: 600; }
+
+.tq-order-status {
+  margin: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tq-success) 12%, var(--tq-surface));
+  color: var(--tq-success);
+  font-weight: 600;
+  text-align: center;
+}
+.tq-order-status-msg { margin: 0; }
+
+.tq-cartbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--tq-text);
+  color: #fff;
+}
+.tq-cartbar-count { flex: 1; font-size: 0.85rem; opacity: 0.85; }
+.tq-cartbar-total { font-weight: 700; }
+
+.tq-hidden { display: none !important; }
+
+.tq-loading, .tq-error {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--tq-text-muted);
+}

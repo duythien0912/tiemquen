@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiệm Quen — đơn nhóm</title>
+  <link rel="stylesheet" href="/buyer/styles.css">
+  <style>
+    .tqg-wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+    .tqg-dish-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .tqg-dish-row span.name { flex: 1; }
+    .tqg-dish-row input[type=number] { width: 56px; padding: 6px; border-radius: 6px; border: 1px solid rgba(0,0,0,.2); }
+    .tqg-member { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .tqg-member.payer strong { color: var(--tq-accent); }
+    .tq-field input, .tq-field select { padding: 9px; border-radius: 8px; border: 1px solid rgba(0,0,0,.15); font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="tqg-wrap" id="app"><p class="tq-loading">Đang tải đơn nhóm…</p></div>
+
+  <script>
+    (function () {
+      "use strict";
+      var injected = window.__TIEMQUEN_GROUP__ || {};
+      var gid = injected.gid || location.pathname.split("/").filter(Boolean).pop();
+      var app = document.getElementById("app");
+      var menuDishes = null;
+
+      function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function vnd(n) { return (n || 0).toLocaleString("vi-VN") + "đ"; }
+
+      function fetchJSON(url, opts) {
+        return fetch(url, opts).then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.detail || "lỗi"); });
+          return r.json();
+        });
+      }
+
+      function loadMenu(slug) {
+        return fetchJSON("/api/shops/" + encodeURIComponent(slug) + "/menu").then(function (body) {
+          menuDishes = body.menu.dishes;
+        });
+      }
+
+      function renderOpen(group) {
+        app.innerHTML = "";
+        app.appendChild(el("h1", null, "Đặt chung — " + group.shop_slug));
+        app.appendChild(el("p", "tq-hero-tagline", "Mỗi người tự chọn món, chốt xong 1 đơn 1 ship."));
+
+        var membersBox = el("div", "tq-checkout");
+        membersBox.appendChild(el("h2", null, "Đã order (" + Object.keys(group.members).length + ")"));
+        Object.keys(group.members).forEach(function (name) {
+          var row = el("div", "tqg-member");
+          row.appendChild(el("span", null, name));
+          row.appendChild(el("strong", null, vnd(group.members[name].subtotal)));
+          membersBox.appendChild(row);
+        });
+        app.appendChild(membersBox);
+
+        var form = el("form", "tq-checkout");
+        form.appendChild(el("h2", null, "Thêm phần của bạn"));
+        var nameField = el("label", "tq-field");
+        nameField.appendChild(el("span", null, "Tên bạn"));
+        var nameInput = document.createElement("input");
+        nameInput.name = "name"; nameInput.required = true;
+        nameField.appendChild(nameInput);
+        form.appendChild(nameField);
+
+        var qtyInputs = {};
+        Object.keys(menuDishes).forEach(function (dishId) {
+          var dish = menuDishes[dishId];
+          if (dish.hidden || dish.sold_out) return;
+          var row = el("div", "tqg-dish-row");
+          row.appendChild(el("span", "name", dish.name + " — " + vnd(dish.price)));
+          var qty = document.createElement("input");
+          qty.type = "number"; qty.min = "0"; qty.value = "0";
+          qtyInputs[dishId] = qty;
+          row.appendChild(qty);
+          form.appendChild(row);
+        });
+
+        var submit = el("button", "tq-btn tq-btn-submit", "Thêm vào đơn nhóm");
+        submit.type = "submit";
+        form.appendChild(submit);
+        form.addEventListener("submit", function (ev) {
+          ev.preventDefault();
+          var items = Object.keys(qtyInputs)
+            .map(function (id) { return { dish_id: id, name: menuDishes[id].name, price: menuDishes[id].price, qty: parseInt(qtyInputs[id].value, 10) || 0 }; })
+            .filter(function (it) { return it.qty > 0; });
+          if (!nameInput.value.trim() || !items.length) {
+            window.alert("Cần tên và ít nhất 1 món.");
+            return;
+          }
+          fetchJSON("/group-orders/" + gid + "/members", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: nameInput.value.trim(), items: items }),
+          }).then(load).catch(function (e) { window.alert(e.message); });
+        });
+        app.appendChild(form);
+
+        var closeForm = el("form", "tq-checkout");
+        closeForm.appendChild(el("h2", null, "Chốt kèo (bạn trả hộ cả nhóm)"));
+        var closerField = el("label", "tq-field");
+        closerField.appendChild(el("span", null, "Ai trả hộ?"));
+        var closerSelect = document.createElement("select");
+        closerSelect.name = "closer";
+        Object.keys(group.members).forEach(function (name) {
+          var opt = document.createElement("option");
+          opt.value = name; opt.textContent = name;
+          closerSelect.appendChild(opt);
+        });
+        closerField.appendChild(closerSelect);
+        closeForm.appendChild(closerField);
+        ["phone", "address", "note"].forEach(function (field) {
+          var f = el("label", "tq-field");
+          f.appendChild(el("span", null, field === "phone" ? "SĐT nhận hàng" : field === "address" ? "Địa chỉ / toà nhà" : "Ghi chú"));
+          var input = document.createElement("input");
+          input.name = field;
+          if (field !== "note") input.required = true;
+          f.appendChild(input);
+          closeForm.appendChild(f);
+        });
+        var closeBtn = el("button", "tq-btn tq-btn-submit", "Chốt đơn — báo quán giao");
+        closeBtn.type = "submit";
+        closeForm.appendChild(closeBtn);
+        closeForm.addEventListener("submit", function (ev) {
+          ev.preventDefault();
+          var fd = new FormData(closeForm);
+          fetchJSON("/group-orders/" + gid + "/close", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              closer_name: fd.get("closer"),
+              customer: { name: fd.get("closer"), phone: fd.get("phone"), address: fd.get("address"), note: fd.get("note") || "" },
+            }),
+          }).then(load).catch(function (e) { window.alert(e.message); });
+        });
+        if (!Object.keys(group.members).length) closeForm.style.display = "none";
+        app.appendChild(closeForm);
+      }
+
+      function renderClosed(group, split) {
+        app.innerHTML = "";
+        app.appendChild(el("h1", null, "Đơn nhóm đã chốt ✅"));
+        app.appendChild(el("p", null, "Quán sẽ giao 1 lần. Chuyển khoản lại cho người trả hộ:"));
+        var box = el("div", "tq-checkout");
+        Object.keys(split).forEach(function (name) {
+          var s = split[name];
+          var row = el("div", "tqg-member" + (s.is_payer ? " payer" : ""));
+          var label = s.is_payer ? name + " (đã trả hộ)" : name;
+          row.appendChild(el("span", null, label));
+          row.appendChild(el("strong", null, vnd(s.amount)));
+          box.appendChild(row);
+          if (s.vietqr_placeholder) {
+            box.appendChild(el("p", "tq-dish-note", "Chuyển cho " + s.vietqr_placeholder.payee + " — " + s.vietqr_placeholder.note + " (VietQR thật ở bản sau)"));
+          }
+        });
+        app.appendChild(box);
+      }
+
+      function load() {
+        return fetchJSON("/group-orders/" + gid).then(function (group) {
+          return loadMenu(group.shop_slug).then(function () {
+            if (group.status === "closed") renderClosed(group, group.split);
+            else renderOpen(group);
+          });
+        });
+      }
+
+      load().catch(function (e) {
+        app.innerHTML = '<p class="tq-error">Không tải được đơn nhóm (' + e.message + ").</p>";
+      });
+    })();
+  </script>
+</body>
+</html>
