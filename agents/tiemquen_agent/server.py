@@ -12,19 +12,22 @@ from __future__ import annotations
 
 import copy
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import jsonschema
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from agents.tiemquen_agent.agents import import_agent
+from agents.tiemquen_agent.agents.html_parse import ImportFallbackToOCR
 from compose.cache import ComposeCache
 from compose.composer import compose_all_variants
 from infra.publish import SlugRegistry
 from infra.storage import LocalJSONStorage, Storage
-from shared.menu_format import load_demo_fixture, validate_menu
+from shared.menu_format import apply_menu_edits, load_demo_fixture, validate_menu, MenuEditError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOPS_COLLECTION = "shops"
@@ -116,6 +119,70 @@ def create_app(
         registry.release(slug)
         cache.delete_shop(slug)
 
+    # ------------------------------------------------------------- import agent
+    # ENGINE-SPEC §5. Not `/import` bare — kept under the same `/api` prefix as
+    # every other route in this server for routing consistency (see
+    # implementation-notes/ImportAgent.html for the deviation from the literal
+    # task wording). Returns the review envelope {menu, warnings, confidence};
+    # it does NOT persist a shop — the seller reviews first, then the existing
+    # POST /api/shops call finalizes (ARCH §3.1).
+
+    @app.post("/api/import")
+    async def import_menu_endpoint(request: Request) -> dict[str, Any]:
+        """Multipart body: field `screenshot` (1+ files) -> OCR (đường chính).
+        JSON body: `{"url": "..."}` (HTML parse, ShopeeFood best-effort) |
+        `{"text": "..."}` (paste-menu text) | `{"fixture": "<name>"}` (dev/demo:
+        replay `data/fixtures/<name>.json` recorded tool-calls directly).
+        """
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("multipart/form-data"):
+            form = await request.form()
+            uploads = form.getlist("screenshot")
+            if not uploads:
+                raise HTTPException(422, detail="multipart body cần field 'screenshot'")
+            with tempfile.TemporaryDirectory() as tmp:
+                paths: list[Path] = []
+                for i, upload in enumerate(uploads):
+                    suffix = Path(getattr(upload, "filename", "") or "").suffix or ".png"
+                    dest = Path(tmp) / f"upload_{i}{suffix}"
+                    dest.write_bytes(await upload.read())
+                    paths.append(dest)
+                try:
+                    return import_agent.import_menu(paths)
+                except Exception as e:
+                    raise HTTPException(422, detail=f"import lỗi: {e}") from e
+
+        raw = await request.body()
+        body: dict[str, Any] = {}
+        if raw:
+            try:
+                import json as _json
+
+                body = _json.loads(raw)
+            except ValueError as e:
+                raise HTTPException(422, detail=f"JSON body không hợp lệ: {e}") from e
+
+        try:
+            if "fixture" in body:
+                return import_agent.import_from_fixture(body["fixture"])
+            if "url" in body:
+                return import_agent.import_menu(body["url"])
+            if "text" in body:
+                return import_agent.import_menu(body["text"])
+        except ImportFallbackToOCR as e:
+            raise HTTPException(
+                status_code=422, detail={"error": str(e), "fallback_to_ocr": True}
+            ) from e
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"import lỗi: {e}") from e
+
+        raise HTTPException(
+            status_code=422,
+            detail="cần multipart 'screenshot', hoặc JSON {'url'|'text'|'fixture': ...}",
+        )
+
     # ------------------------------------------------------------ compose engine
 
     def _resolve_shop(slug: str) -> dict[str, Any]:
@@ -196,6 +263,50 @@ def create_app(
             "slug": slug,
             "patches": [{"path": p, "value": v} for p, v in patches],
             "patched_variants": sorted(patched),
+        }
+
+    # ------------------------------------------------------------- menu review
+    # ARCH §3.1 seller review step: sửa giá trực tiếp, ẩn món, thêm món
+    # "chỉ bán trực tiếp", đổi tên section. Unlike /patch above, these edits
+    # change STRUCTURE (dishes/sections added or reshaped) so they go through
+    # a full recompose, not a data-only patch.
+
+    @app.get("/api/shops/{slug}/menu")
+    def get_shop_menu(slug: str) -> dict[str, Any]:
+        """Current chuẩn-menu `menu` block (sections + dishes) for the review UI."""
+        doc = _resolve_shop(slug)
+        return {"slug": slug, "menu": doc["menu"]}
+
+    @app.patch("/api/shops/{slug}/menu")
+    def patch_shop_menu(slug: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Apply seller review edits, persist, and RECOMPOSE (ARCH §3.1).
+
+        Body: `{"edits": [...]}` — ops per `shared.menu_format.apply_menu_edits`:
+        `set_price` · `hide_dish` · `add_dish` (supports `direct_only`) ·
+        `retitle_section`. Structural change -> full recompose (all variants),
+        unlike `/patch` (sold-out/price-only, data patch, no recompose).
+        """
+        edits = body.get("edits")
+        if not isinstance(edits, list) or not edits:
+            raise HTTPException(status_code=422, detail="body cần 'edits': [...] không rỗng")
+
+        doc = copy.deepcopy(_resolve_shop(slug))
+        try:
+            warnings = apply_menu_edits(doc, edits)
+            validate_menu(doc)
+        except MenuEditError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        except jsonschema.ValidationError as e:
+            raise HTTPException(status_code=422, detail=f"menu không hợp lệ sau edit: {e.message}") from e
+
+        storage.put(SHOPS_COLLECTION, doc["shop"]["id"], doc)
+        variants = compose_all_variants(doc)  # recompose (ENGINE-SPEC §1: structure đổi)
+        cache.write_variants(slug, variants)
+        return {
+            "slug": slug,
+            "menu": doc["menu"],
+            "warnings": warnings,
+            "recomposed_variants": sorted(variants),
         }
 
     @app.get("/api/shops/{slug}/composed/{variant}")

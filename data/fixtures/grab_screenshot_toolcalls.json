@@ -1,0 +1,112 @@
+{
+  "_comment": "Realistic simulated tool-call trace for MOCK mode of the import agent (ENGINE-SPEC §5). Pretends a Gemini-vision OCR pass over a screenshot of the demo shop's Grab menu page. Replayed through toolable.Toolable.replay() -> agents/tiemquen_agent/tools/menu_tools.py (MenuAssembler) -> same assembly path as REAL mode. Includes one deliberately-bad OCR price ('Nước sâm lạnh' read as 1.500.000đ instead of 15.000đ — a dropped decimal point is a common OCR failure) to exercise the price-sanity warning path end to end.",
+  "source_type": "ocr_screenshot",
+  "message": "Đã đọc xong menu từ ảnh chụp màn hình Grab.",
+  "tool_calls": [
+    {
+      "name": "set_shop_info",
+      "args": {
+        "name": "Cơm Tấm Cô Ba",
+        "phone": "0909123456",
+        "address": "12 Nguyễn Đình Chiểu, P. Đa Kao, Q.1, TP.HCM",
+        "hours": "06:00-14:00"
+      }
+    },
+    {
+      "name": "add_section",
+      "args": {"id": "com_tam", "title": "Cơm tấm"}
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "com_tam",
+        "name": "Cơm tấm sườn nướng",
+        "price": 35000,
+        "desc": "Sườn cốt lết ướp sả nướng than hoa, mỡ hành, đồ chua",
+        "image_ref": "https://cdn.grab.com/menu/comtamcoba/suon-nuong.jpg"
+      }
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "com_tam",
+        "name": "Cơm tấm sườn bì chả",
+        "price": 45000,
+        "desc": "Đủ bộ sườn - bì - chả trứng hấp, chan nước mắm kẹo",
+        "image_ref": "https://cdn.grab.com/menu/comtamcoba/suon-bi-cha.jpg"
+      }
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "com_tam",
+        "name": "Cơm tấm gà nướng mật ong",
+        "price": 38000,
+        "desc": "Đùi gà góc tư nướng mật ong, da giòn",
+        "image_ref": "https://cdn.grab.com/menu/comtamcoba/ga-nuong.jpg"
+      }
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "com_tam",
+        "name": "Cơm tấm sườn trứng ốp la",
+        "price": 42000,
+        "desc": "Sườn nướng kèm trứng ốp la lòng đào"
+      }
+    },
+    {
+      "name": "add_section",
+      "args": {"id": "mon_them", "title": "Món thêm"}
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "mon_them",
+        "name": "Trứng ốp la",
+        "price": 6000,
+        "desc": "Thêm trứng ốp la lòng đào"
+      }
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "mon_them",
+        "name": "Chả trứng hấp",
+        "price": 10000,
+        "desc": "Chả trứng hấp nhà làm, cắt lát"
+      }
+    },
+    {
+      "name": "add_section",
+      "args": {"id": "nuoc_uong", "title": "Nước uống"}
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "nuoc_uong",
+        "name": "Trà đá",
+        "price": 3000,
+        "desc": "Trà đá miễn phí khi ăn tại tiệm"
+      }
+    },
+    {
+      "name": "add_dish",
+      "args": {
+        "section_id": "nuoc_uong",
+        "name": "Nước sâm lạnh",
+        "price": 1500000,
+        "desc": "Nước sâm nhà nấu, giải nhiệt trưa nắng — giá trên ảnh mờ, đọc tạm"
+      }
+    },
+    {
+      "name": "finish",
+      "args": {
+        "confidence": 82,
+        "warnings": [
+          "Giá 'Nước sâm lạnh' trên ảnh bị mờ/che khuất, đọc tạm — kiểm tra lại"
+        ]
+      }
+    }
+  ]
+}

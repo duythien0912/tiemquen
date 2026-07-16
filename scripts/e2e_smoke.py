@@ -22,6 +22,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import httpx  # noqa: E402
 
 from agents.tiemquen_agent import a2ui  # noqa: E402
+from agents.tiemquen_agent.agents import import_agent  # noqa: E402
 from agents.tiemquen_agent.server import create_app  # noqa: E402
 from compose.cache import ComposeCache  # noqa: E402
 from compose.composer import VARIANTS, compose_all_variants, is_mock_mode  # noqa: E402
@@ -150,9 +151,93 @@ def main() -> int:
     ok(f"patch {patch_path}={patch_value} appended to all {len(patched)} cached variants")
 
     # ---------------------------------------------------------------------
-    # LATER PHASES: append STEP 8+ here (import agent mock, order state
-    # machine, notify stub, flyer PDF, ...).
+    step(8, "Import agent (mock mode): OCR fixture -> chuẩn menu validates")
     # ---------------------------------------------------------------------
+    assert import_agent.is_mock_mode()  # smoke never touches GEMINI_API_KEY
+    import_envelope = import_agent.import_menu("fake_screenshot_path.png")
+    validate_menu(import_envelope["menu"])
+    imported_shop_name = import_envelope["menu"]["shop"]["name"]
+    assert imported_shop_name == "Cơm Tấm Cô Ba"
+    assert 0 <= import_envelope["confidence"] <= 100
+    assert any("Nước sâm" in w for w in import_envelope["warnings"]), (
+        "fixture's deliberately-bad OCR price must surface as a price-sanity warning"
+    )
+    ok(
+        f"import_menu(screenshot) -> valid chuẩn menu "
+        f"({len(import_envelope['menu']['menu']['dishes'])} dishes, "
+        f"confidence={import_envelope['confidence']}, "
+        f"{len(import_envelope['warnings'])} warning(s))"
+    )
+
+    # ---------------------------------------------------------------------
+    step(9, "Full flow via HTTP: import -> create shop -> PATCH price -10% -> recompose")
+    # ---------------------------------------------------------------------
+    async def run_import_flow() -> None:
+        flow_storage = LocalJSONStorage(scratch / "import_flow")
+        flow_cache_dir = scratch / "import_flow_composed"
+        app = create_app(storage=flow_storage, composed_dir=flow_cache_dir)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://smoke") as client:
+            r = await client.post("/api/import", json={"fixture": "grab_screenshot_toolcalls"})
+            assert r.status_code == 200, r.text
+            imported_menu = r.json()["menu"]
+            ok("POST /api/import {fixture:...} -> 200, envelope has valid menu")
+
+            # Theme seed colors come from the Imagen/flyer agent (ENGINE-SPEC
+            # §6) — out of scope for the import pipeline. Fake them here so
+            # this smoke can exercise /compose without that later phase.
+            imported_menu["shop"]["theme"] = {
+                "seed_colors": ["#B7410E", "#F5E6C8", "#2F4A34", "#FFB84C"]
+            }
+
+            r = await client.post("/api/shops", json=imported_menu)
+            assert r.status_code == 201, r.text
+            slug = r.json()["shop"]["slug"]
+            ok(f"POST /api/shops (imported doc) -> 201 (slug={slug!r})")
+
+            r = await client.get(f"/api/shops/{slug}/menu")
+            assert r.status_code == 200, r.text
+            menu_before = r.json()["menu"]
+            dish_id = menu_before["sections"][0]["items"][0]
+            old_price = menu_before["dishes"][dish_id]["price"]
+            new_price = round(old_price * 0.9)  # seller drops price -10% direct-order discount
+            ok(f"GET /api/shops/{slug}/menu -> dish {dish_id!r} @ {old_price}đ")
+
+            r = await client.post(f"/api/shops/{slug}/compose")
+            assert r.status_code == 200, r.text
+            cache = ComposeCache(flow_cache_dir)
+            before_bytes = {
+                v: cache.variant_path(slug, v).stat().st_mtime for v in VARIANTS
+            }
+            ok(f"POST /api/shops/{slug}/compose -> cache populated for {len(VARIANTS)} variants")
+
+            r = await client.patch(
+                f"/api/shops/{slug}/menu",
+                json={"edits": [{"op": "set_price", "dish_id": dish_id, "price": new_price}]},
+            )
+            assert r.status_code == 200, r.text
+            body = r.json()
+            assert body["menu"]["dishes"][dish_id]["price"] == new_price
+            assert sorted(body["recomposed_variants"]) == sorted(VARIANTS)
+            ok(f"PATCH /api/shops/{slug}/menu set_price -10% -> {new_price}đ, recompose triggered")
+
+            for variant in VARIANTS:
+                messages = cache.read_variant(slug, variant)
+                assert messages is not None, f"composed cache missing for {variant}"
+                prices_msg = next(
+                    m["updateDataModel"]
+                    for m in messages
+                    if m.get("updateDataModel", {}).get("path") == "/prices"
+                )
+                assert prices_msg["value"][dish_id] == new_price, (
+                    f"{variant}: composed cache price stale after recompose"
+                )
+                # Full recompose overwrites the file (unlike /patch's append-only
+                # updateDataModel trick) — mtime must have moved forward.
+                assert cache.variant_path(slug, variant).stat().st_mtime >= before_bytes[variant]
+            ok(f"composed cache for all {len(VARIANTS)} variants reflects the new price")
+
+    asyncio.run(run_import_flow())
 
     print("\nSMOKE OK — all steps passed.")
     return 0
