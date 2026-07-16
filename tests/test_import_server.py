@@ -52,6 +52,14 @@ def test_import_via_fixture_unknown_name_404(client):
     assert r.status_code == 404
 
 
+def test_import_via_fixture_rejects_path_traversal(client):
+    # `fixture` is attacker-controlled — names with path separators / dots
+    # must never be resolved against the filesystem (422, not 404/500).
+    for name in ("../shops/x", "..", "a/b", "a\\b", ".hidden", "x."):
+        r = client.post("/api/import", json={"fixture": name})
+        assert r.status_code == 422, name
+
+
 def test_import_via_multipart_screenshot_mock_mode(client):
     r = client.post(
         "/api/import",

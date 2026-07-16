@@ -34,6 +34,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GRAB_FIXTURE_PATH = REPO_ROOT / "data" / "fixtures" / "grab_screenshot_toolcalls.json"
 
 _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+#: Fixture names come from the (unauthenticated) /api/import body — lock them
+#: to a single flat filename so `../` can never escape data/fixtures/.
+_FIXTURE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp"})
 _MIME_BY_SUFFIX = {
     ".png": "image/png",
@@ -99,9 +102,11 @@ def import_from_fixture(name: str) -> dict[str, Any]:
     scripts/e2e_smoke.py exercise the import -> review -> patch flow without
     needing real image bytes on disk.
     """
+    if not isinstance(name, str) or not _FIXTURE_NAME_RE.match(name):
+        raise ValueError(f"tên fixture không hợp lệ: {name!r}")
     path = REPO_ROOT / "data" / "fixtures" / f"{name}.json"
     if not path.is_file():
-        raise FileNotFoundError(f"fixture không tồn tại: {path}")
+        raise FileNotFoundError(f"fixture không tồn tại: {name!r}")
     with path.open("r", encoding="utf-8") as f:
         payload = json.load(f)
     assembler = MenuAssembler(source_type=payload.get("source_type", "ocr_screenshot"))

@@ -78,6 +78,19 @@ def test_create_order_requires_customer_fields(client):
     assert client.post("/orders", json=body).status_code == 422
 
 
+def test_create_order_rejects_malformed_input_with_422_not_500(client):
+    # Non-numeric qty
+    body = _order_body(items=[{"dish_id": "dish_tra_da", "qty": "nhiều"}])
+    assert client.post("/orders", json=body).status_code == 422
+    # Item entries that aren't objects
+    assert client.post("/orders", json=_order_body(items=["dish_tra_da"])).status_code == 422
+    # dish_id that isn't a string
+    body = _order_body(items=[{"dish_id": {"x": 1}, "qty": 1}])
+    assert client.post("/orders", json=body).status_code == 422
+    # customer that isn't an object
+    assert client.post("/orders", json=_order_body(customer="An")).status_code == 422
+
+
 def test_order_status_and_ack_flow(client):
     order = client.post("/orders", json=_order_body()).json()
     oid = order["id"]

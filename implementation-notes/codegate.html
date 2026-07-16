@@ -1,0 +1,15 @@
+<h2>Code gate — review & fix round (2026-07-16)</h2>
+<ul>
+  <li><b>Compose without theme → 409, not silent default.</b> POST /api/shops/{slug}/compose
+      and PATCH /api/shops/{slug}/menu used to crash 500 (KeyError) when the shop doc had no
+      <code>shop.theme</code> (schema-optional; every freshly imported shop lacks it). Two real
+      alternatives: (a) fall back to <code>imagen.DEFAULT_SEED_COLORS</code> so compose always
+      succeeds, or (b) refuse with a clear 409 telling the seller to run the hero step first.
+      Chose (b): SPEC §6 explicitly orders hero-before-first-compose, and the seller PWA already
+      calls /hero before /compose — a silent default palette would mask a skipped onboarding step
+      and bake wrong branding into the cache. Reviewer may prefer (a) for API-only integrators.</li>
+  <li><b>/patch price values now go through <code>coerce_price</code></b> (so "4.000đ" is accepted
+      and normalized to 4000, same rule as menu review edits), and soldout/almostout patch values
+      must be booleans. Previously an arbitrary value ("abc") was persisted into the shop doc and
+      later 500'd the buyer's POST /orders at compute_total().</li>
+</ul>

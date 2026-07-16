@@ -81,7 +81,7 @@ class GroupOrderStore:
         doc = self.get(gid)
         if doc["status"] != STATUS_OPEN:
             raise GroupOrderError(f"group order {gid!r} đã chốt, không thêm món được nữa")
-        if not member_name or not member_name.strip():
+        if not isinstance(member_name, str) or not member_name.strip():
             raise GroupOrderError("cần tên thành viên")
         if not items:
             raise GroupOrderError(f"{member_name}: cần ít nhất 1 món")
@@ -112,7 +112,7 @@ class GroupOrderStore:
             raise GroupOrderError(f"group order {gid!r} đã chốt rồi")
         if not doc["members"]:
             raise GroupOrderError(f"group order {gid!r} chưa có ai order")
-        if closer_name not in doc["members"]:
+        if not isinstance(closer_name, str) or closer_name not in doc["members"]:
             raise GroupOrderError(
                 f"người chốt {closer_name!r} phải tự order ít nhất 1 món (là người trả hộ)"
             )

@@ -86,6 +86,53 @@ def test_patch_price_via_raw_path(env):
     assert doc["menu"]["dishes"]["dish_tra_da"]["price"] == 4000
 
 
+def test_compose_without_theme_409s_with_hero_hint(env):
+    # Imported shops have no shop.theme yet (schema-optional) — compose and
+    # menu-edit recompose must 409 with a clear message, not 500 on KeyError.
+    client, _ = env
+    doc = load_demo_fixture()
+    doc["shop"].pop("theme", None)
+    doc["shop"]["id"] = "shop_chua_theme"
+    doc["shop"]["slug"] = "chua-theme"
+    doc["shop"]["name"] = "Quán Chưa Theme"
+    assert client.post("/api/shops", json=doc).status_code == 201
+
+    r = client.post("/api/shops/chua-theme/compose")
+    assert r.status_code == 409
+    assert "hero" in r.json()["detail"]
+
+    r = client.patch(
+        "/api/shops/chua-theme/menu",
+        json={"edits": [{"op": "set_price", "dish_id": "dish_tra_da", "price": 5000}]},
+    )
+    assert r.status_code == 409
+
+
+def test_patch_rejects_bad_value_types(env):
+    client, _ = env
+    client.post(f"/api/shops/{SLUG}/compose")
+    # Non-numeric price must never be persisted (would 500 buyer checkout).
+    assert client.post(
+        f"/api/shops/{SLUG}/patch", json={"dish_id": "dish_tra_da", "price": "abc"}
+    ).status_code == 422
+    assert client.post(
+        f"/api/shops/{SLUG}/patch", json={"path": "/prices/dish_tra_da", "value": None}
+    ).status_code == 422
+    # Sold-out flags must be booleans.
+    assert client.post(
+        f"/api/shops/{SLUG}/patch", json={"dish_id": "dish_tra_da", "sold_out": "yes"}
+    ).status_code == 422
+    doc = client.get(f"/api/shops/{SLUG}").json()
+    assert doc["menu"]["dishes"]["dish_tra_da"]["price"] == 3000  # untouched
+
+    # Coercible price strings ('45,000đ') still work — same rule as menu edits.
+    r = client.post(
+        f"/api/shops/{SLUG}/patch", json={"dish_id": "dish_tra_da", "price": "4.000đ"}
+    )
+    assert r.status_code == 200
+    assert r.json()["patches"] == [{"path": "/prices/dish_tra_da", "value": 4000}]
+
+
 def test_patch_validation_errors(env):
     client, _ = env
     client.post(f"/api/shops/{SLUG}/compose")

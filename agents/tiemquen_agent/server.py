@@ -51,7 +51,13 @@ from infra.qr_batch import (
     qr_url,
 )
 from infra.storage import LocalJSONStorage, Storage
-from shared.menu_format import apply_menu_edits, load_demo_fixture, validate_menu, MenuEditError
+from shared.menu_format import (
+    MenuEditError,
+    apply_menu_edits,
+    coerce_price,
+    load_demo_fixture,
+    validate_menu,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHOPS_COLLECTION = "shops"
@@ -226,6 +232,21 @@ def create_app(
             raise HTTPException(status_code=404, detail=f"no shop at slug {slug!r}")
         return doc
 
+    def _require_theme(doc: dict[str, Any], slug: str) -> None:
+        """Compose needs `shop.theme.seed_colors` (SPEC §6: hero/imagen step
+        seeds it and 'phải chạy TRƯỚC compose đầu tiên'). Theme is optional in
+        the menu schema (imported shops have none yet), so guard here with a
+        clear 409 instead of letting compose crash on a KeyError."""
+        theme = doc["shop"].get("theme") or {}
+        if not theme.get("seed_colors"):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"tiệm {slug!r} chưa có theme — gọi POST /api/shops/{slug}/hero "
+                    "(sinh palette imagen) trước lần compose đầu tiên"
+                ),
+            )
+
     @app.post("/api/shops/{slug}/compose")
     def compose_shop(slug: str) -> dict[str, Any]:
         """Recompose ALL variants (ARCH §5.3) and overwrite the cache.
@@ -234,6 +255,7 @@ def create_app(
         changes must use /patch instead (no LLM, no recompose).
         """
         doc = _resolve_shop(slug)
+        _require_theme(doc, slug)
         variants = compose_all_variants(doc)
         cache.write_variants(slug, variants)
         return {
@@ -255,6 +277,22 @@ def create_app(
         doc = _resolve_shop(slug)
         dishes = doc["menu"]["dishes"]
 
+        def _checked_value(path: str, value: Any) -> Any:
+            """Type-gate patch values: a bad price string persisted here would
+            later 500 the buyer's POST /orders (compute_total int()), and a
+            non-bool soldout flag confuses the renderer — reject at the door."""
+            head = path.strip("/").split("/", 1)[0]
+            if head == "prices":
+                try:
+                    return coerce_price(value)
+                except ValueError as e:
+                    raise HTTPException(status_code=422, detail=f"giá không hợp lệ: {e}") from e
+            if head in ("soldout", "almostout") and not isinstance(value, bool):
+                raise HTTPException(
+                    status_code=422, detail=f"{path!r} cần giá trị bool, nhận {value!r}"
+                )
+            return value
+
         patches: list[tuple[str, Any]] = []
         if "path" in body:
             if "value" not in body:
@@ -262,7 +300,7 @@ def create_app(
             patches.append((body["path"], body["value"]))
         elif "dish_id" in body:
             dish_id = body["dish_id"]
-            if dish_id not in dishes:
+            if not isinstance(dish_id, str) or dish_id not in dishes:
                 raise HTTPException(status_code=404, detail=f"unknown dish {dish_id!r}")
             for field, prefix in (("sold_out", "/soldout"), ("almost_out", "/almostout"),
                                   ("price", "/prices")):
@@ -277,9 +315,11 @@ def create_app(
 
         # Sync shop store so flags survive the next structural recompose.
         doc_changed = False
-        for path, value in patches:
+        for i, (path, value) in enumerate(patches):
             if not isinstance(path, str) or not path.startswith("/"):
                 raise HTTPException(status_code=422, detail=f"bad patch path {path!r}")
+            value = _checked_value(path, value)
+            patches[i] = (path, value)
             parts = path.strip("/").split("/")
             if len(parts) == 2 and parts[1] in dishes:
                 field = {"soldout": "sold_out", "almostout": "almost_out",
@@ -325,6 +365,7 @@ def create_app(
             raise HTTPException(status_code=422, detail="body cần 'edits': [...] không rỗng")
 
         doc = copy.deepcopy(_resolve_shop(slug))
+        _require_theme(doc, slug)  # before persisting: edits+recompose are one unit
         try:
             warnings = apply_menu_edits(doc, edits)
             validate_menu(doc)
@@ -360,15 +401,22 @@ def create_app(
         """Server is the price authority — never trust client-sent prices.
         Also the sold-out gate: a race where the buyer's cached page still
         shows a dish that just sold out gets caught HERE, not client-side."""
-        if not raw_items:
+        if not isinstance(raw_items, list) or not raw_items:
             raise HTTPException(status_code=422, detail="order cần ít nhất 1 món")
         items: list[dict[str, Any]] = []
         for raw in raw_items:
+            if not isinstance(raw, dict):
+                raise HTTPException(status_code=422, detail=f"item không hợp lệ: {raw!r}")
             dish_id = raw.get("dish_id")
-            dish = dishes.get(dish_id)
+            dish = dishes.get(dish_id) if isinstance(dish_id, str) else None
             if dish is None:
                 raise HTTPException(status_code=422, detail=f"món {dish_id!r} không tồn tại")
-            qty = int(raw.get("qty", 1))
+            try:
+                qty = int(raw.get("qty", 1))
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=422, detail=f"qty không hợp lệ cho {dish_id!r}: {raw.get('qty')!r}"
+                ) from None
             if qty <= 0:
                 raise HTTPException(status_code=422, detail=f"qty phải > 0 cho {dish_id!r}")
             if dish.get("sold_out"):
@@ -376,7 +424,9 @@ def create_app(
             items.append({"dish_id": dish_id, "name": dish["name"], "price": dish["price"], "qty": qty})
         return items
 
-    def _require_customer(customer: dict[str, Any]) -> None:
+    def _require_customer(customer: Any) -> None:
+        if not isinstance(customer, dict):
+            raise HTTPException(status_code=422, detail="'customer' phải là object")
         missing = [f for f in ("name", "phone", "address") if not customer.get(f)]
         if missing:
             raise HTTPException(status_code=422, detail=f"customer thiếu: {missing}")
@@ -447,8 +497,8 @@ def create_app(
         """Generic seller-dashboard transition: confirmed/delivering/done/
         cancelled/no_show_flagged. Illegal moves -> 409 (shared/order_states)."""
         to = body.get("to")
-        if not to:
-            raise HTTPException(status_code=422, detail="cần 'to'")
+        if not to or not isinstance(to, str):
+            raise HTTPException(status_code=422, detail="cần 'to' (tên trạng thái)")
         try:
             return order_store.transition(order_id, to)
         except OrderNotFoundError as e:
