@@ -25,11 +25,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from agents.tiemquen_agent import imagen
 from agents.tiemquen_agent.agents import import_agent
 from agents.tiemquen_agent.agents.html_parse import ImportFallbackToOCR
 from agents.tiemquen_agent.agents.order_parse_agent import parse_order_text
 from compose.cache import ComposeCache
 from compose.composer import VARIANTS, compose_all_variants
+from infra import pdf_export
 from infra.group_orders import GroupOrderError, GroupOrderNotFoundError, GroupOrderStore
 from infra.notify import NotifyPipeline
 from infra.orders import (
@@ -40,6 +42,14 @@ from infra.orders import (
     OrderTransitionError,
 )
 from infra.publish import SlugRegistry
+from infra.qr_batch import (
+    FLYER_FORMATS,
+    BatchError,
+    BatchNotFoundError,
+    BatchStore,
+    orders_per_batch,
+    qr_url,
+)
 from infra.storage import LocalJSONStorage, Storage
 from shared.menu_format import apply_menu_edits, load_demo_fixture, validate_menu, MenuEditError
 
@@ -48,12 +58,15 @@ SHOPS_COLLECTION = "shops"
 
 
 def create_app(
-    storage: Storage | None = None, composed_dir: Path | None = None
+    storage: Storage | None = None,
+    composed_dir: Path | None = None,
+    media_dir: Path | None = None,
 ) -> FastAPI:
     """Build the app. Inject `storage` for tests; default = data/ on disk.
 
     Runs entirely without GEMINI_API_KEY — LLM calls are compose-time only
-    (mock mode composes from templates, zero network).
+    (mock mode composes from templates, zero network; imagen falls back to
+    Pillow placeholders so the flyer path works offline too).
     """
     if storage is None:
         data_dir = Path(os.environ.get("TIEMQUEN_DATA_DIR", REPO_ROOT / "data"))
@@ -62,11 +75,15 @@ def create_app(
         # Keep the compose cache next to whatever data dir storage uses.
         base = getattr(storage, "base_dir", REPO_ROOT / "data")
         composed_dir = Path(base) / "composed"
+    if media_dir is None:
+        media_dir = REPO_ROOT / "data" / "media"
+    media_dir = Path(media_dir)
 
     registry = SlugRegistry(storage)
     cache = ComposeCache(composed_dir)
     order_store = OrderStore(storage)
     group_store = GroupOrderStore(storage)
+    batch_store = BatchStore(storage)
     notify_pipeline = NotifyPipeline()
     app = FastAPI(title="Tiệm Quen agent server", version="0.1.0")
 
@@ -510,6 +527,152 @@ def create_app(
         )
         return result
 
+    # --------------------------------------------------- seller: order list
+    # Đơn tab of the seller PWA polls this (no push channel needed in dev —
+    # NotifyPipeline handles the FCM/SMS side separately).
+
+    @app.get("/api/shops/{slug}/orders")
+    def list_shop_orders(slug: str, limit: int = 50) -> dict[str, Any]:
+        _resolve_shop(slug)
+        orders = order_store.list_by_shop(slug)
+        return {"slug": slug, "orders": list(reversed(orders))[: max(1, limit)]}
+
+    # ------------------------------------------- flyer batches (QR analytics)
+    # ARCH §2: mỗi batch in 1 mã QR riêng -> biết tờ dán chỗ nào ra bao nhiêu
+    # đơn. batch_id đi vào ?b= trên QR, orders đã lưu batch_id sẵn.
+
+    @app.post("/api/shops/{slug}/batches", status_code=201)
+    def create_batch(slug: str, body: dict[str, Any]) -> dict[str, Any]:
+        doc = _resolve_shop(slug)
+        fmt = body.get("format", "")
+        try:
+            batch = batch_store.create_batch(
+                doc["shop"]["id"], slug, fmt, body.get("location_tag", "")
+            )
+        except BatchError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        return {**batch, "qr_url": qr_url(slug, batch["id"])}
+
+    @app.get("/api/shops/{slug}/batches")
+    def list_batches(slug: str) -> dict[str, Any]:
+        _resolve_shop(slug)
+        batches = [
+            {**b, "qr_url": qr_url(slug, b["id"])} for b in batch_store.list_by_shop(slug)
+        ]
+        return {"slug": slug, "batches": batches}
+
+    @app.delete("/api/shops/{slug}/batches/{batch_id}", status_code=204)
+    def delete_batch(slug: str, batch_id: str) -> None:
+        _resolve_shop(slug)
+        try:
+            batch = batch_store.get(batch_id)
+        except BatchNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        if batch["shop_slug"] != slug:
+            raise HTTPException(status_code=404, detail=f"batch {batch_id!r} không thuộc tiệm này")
+        batch_store.delete(batch_id)
+
+    @app.get("/api/shops/{slug}/batch-analytics")
+    def batch_analytics(slug: str, since: str | None = None) -> dict[str, Any]:
+        """Đơn-theo-batch (growth loop ARCH §3.4). `since` = ISO timestamp."""
+        _resolve_shop(slug)
+        try:
+            per_batch = orders_per_batch(storage, slug, since=since)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=f"'since' không hợp lệ: {e}") from e
+        batches = {b["id"]: b for b in batch_store.list_by_shop(slug)}
+        for batch_id, entry in per_batch.items():
+            meta = batches.get(batch_id)
+            entry["location_tag"] = meta["location_tag"] if meta else None
+            entry["format"] = meta["format"] if meta else None
+        return {"slug": slug, "since": since, "per_batch": per_batch}
+
+    # -------------------------------------------------- imagen hero + flyers
+    # ENGINE-SPEC §6. Mock mode without GEMINI_API_KEY — whole path offline.
+
+    @app.post("/api/shops/{slug}/hero")
+    def generate_hero(slug: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Sinh hero background 1 format (+ palette 4 seed). Nếu shop chưa có
+        theme, palette imagen trở thành `shop.theme.seed_colors` (SPEC §6:
+        'theme tiệm từ 4 màu seed') — bước này phải chạy TRƯỚC compose đầu tiên."""
+        body = body or {}
+        doc = _resolve_shop(slug)
+        fmt = body.get("format", "a5")
+        try:
+            result = imagen.generate_hero(
+                doc, fmt, media_dir=media_dir, force=bool(body.get("force"))
+            )
+        except imagen.ImagenError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        if not doc["shop"].get("theme"):
+            doc["shop"]["theme"] = {"seed_colors": result["palette"]}
+            storage.put(SHOPS_COLLECTION, doc["shop"]["id"], doc)
+        return {
+            "slug": slug, "format": fmt, "hero_url": result["url"],
+            "palette": result["palette"], "cached": result["cached"], "mode": result["mode"],
+        }
+
+    @app.post("/api/shops/{slug}/flyers")
+    def generate_flyers(slug: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Sinh bộ tờ rơi: tạo batch mới cho mỗi format (hoặc dùng
+        `batch_ids` truyền sẵn) -> hero (imagen) -> PDF print-ready.
+
+        Body: {"formats": ["a5","a4"], "location_tag": "..."} hoặc
+              {"batch_ids": {"a5": "<batch_id>"}}.
+        PDF tải qua static mount: /media/<slug>/flyer_<format>.pdf.
+        """
+        body = body or {}
+        doc = _resolve_shop(slug)
+
+        batch_ids: dict[str, str] = dict(body.get("batch_ids") or {})
+        for fmt in batch_ids:
+            try:
+                batch = batch_store.get(batch_ids[fmt])
+            except BatchNotFoundError as e:
+                raise HTTPException(status_code=404, detail=str(e)) from e
+            if batch["shop_slug"] != slug or batch["format"] != fmt:
+                raise HTTPException(422, detail=f"batch {batch['id']!r} không khớp tiệm/format")
+        formats = body.get("formats") or ([] if batch_ids else ["a5", "a4", "sticker"])
+        for fmt in formats:
+            if fmt in batch_ids:
+                continue
+            try:
+                batch = batch_store.create_batch(
+                    doc["shop"]["id"], slug, fmt, body.get("location_tag") or "cua-quan"
+                )
+            except BatchError as e:
+                raise HTTPException(status_code=422, detail=str(e)) from e
+            batch_ids[fmt] = batch["id"]
+
+        try:
+            paths = pdf_export.export_flyers(doc, batch_ids, media_dir=media_dir)
+        except (pdf_export.PDFExportError, imagen.ImagenError) as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+        # First flyer run also seeds the shop theme from the imagen palette.
+        if not doc["shop"].get("theme"):
+            first_fmt = next(iter(batch_ids))
+            hero = imagen.generate_hero(doc, first_fmt, media_dir=media_dir)
+            doc["shop"]["theme"] = {"seed_colors": hero["palette"]}
+            storage.put(SHOPS_COLLECTION, doc["shop"]["id"], doc)
+
+        return {
+            "slug": slug,
+            "flyers": {
+                fmt: {
+                    "batch_id": batch_ids[fmt],
+                    "pdf_url": f"/media/{slug}/{paths[fmt].name}",
+                    "qr_url": qr_url(slug, batch_ids[fmt]),
+                }
+                for fmt in batch_ids
+            },
+            "formats": sorted(batch_ids),
+        }
+
+    @app.get("/api/flyer-formats")
+    def flyer_formats() -> dict[str, Any]:
+        return {"formats": list(FLYER_FORMATS)}
+
     # ------------------------------------------------------- buyer/group pages
     # Server-rendered bootstrap: read the committed static HTML, inject a
     # tiny <script> with slug/gid (+ known variants) before it, return AS-IS
@@ -543,7 +706,6 @@ def create_app(
     # buyer/ + seller/ are committed static sites; data/media holds rehosted
     # images (gitignored) — create so the mount never 500s on a fresh clone.
 
-    media_dir = REPO_ROOT / "data" / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/buyer", StaticFiles(directory=REPO_ROOT / "buyer", html=True), name="buyer")
     app.mount("/seller", StaticFiles(directory=REPO_ROOT / "seller", html=True), name="seller")

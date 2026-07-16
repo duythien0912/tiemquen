@@ -22,7 +22,9 @@ sys.path.insert(0, str(REPO_ROOT))
 import httpx  # noqa: E402
 
 from agents.tiemquen_agent import a2ui  # noqa: E402
+from agents.tiemquen_agent import imagen as imagen_service  # noqa: E402
 from agents.tiemquen_agent.agents import import_agent  # noqa: E402
+from infra import vietqr  # noqa: E402
 from agents.tiemquen_agent.server import create_app  # noqa: E402
 from compose.cache import ComposeCache  # noqa: E402
 from compose.composer import VARIANTS, compose_all_variants, is_mock_mode  # noqa: E402
@@ -249,7 +251,11 @@ def main() -> int:
 
     async def run_order_flow() -> None:
         order_storage = LocalJSONStorage(scratch / "order_flow")
-        app = create_app(storage=order_storage, composed_dir=scratch / "order_flow_composed")
+        app = create_app(
+            storage=order_storage,
+            composed_dir=scratch / "order_flow_composed",
+            media_dir=scratch / "order_flow_media",
+        )
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://smoke") as client:
             r = await client.post("/api/shops", json=fixture)
@@ -336,6 +342,64 @@ def main() -> int:
                 f"3-member group order closed -> 1 order total={expected_total:,}đ, "
                 "per-member split sums exactly (no equal-division remainder)"
             )
+
+            # -----------------------------------------------------------------
+            step(12, "Flyer path: A5+A4 batches -> mock imagen hero -> print PDFs")
+            # -----------------------------------------------------------------
+            assert imagen_service.is_mock_mode()  # never touches GEMINI_API_KEY
+            batch_ids: dict[str, str] = {}
+            for fmt in ("a5", "a4"):
+                r = await client.post(
+                    f"/api/shops/{slug}/batches",
+                    json={"format": fmt, "location_tag": "office plaza 1"},
+                )
+                assert r.status_code == 201, r.text
+                batch = r.json()
+                assert batch["qr_url"] == f"/t/{slug}?b={batch['id']}"
+                batch_ids[fmt] = batch["id"]
+            ok(f"2 batches created (A5+A4), QR URLs carry ?b=<batch_id>: {sorted(batch_ids.values())}")
+
+            r = await client.post(f"/api/shops/{slug}/flyers", json={"batch_ids": batch_ids})
+            assert r.status_code == 200, r.text
+            flyers = r.json()["flyers"]
+            assert set(flyers) == {"a5", "a4"}
+            for fmt, entry in flyers.items():
+                hero_png = scratch / "order_flow_media" / slug / f"hero_{fmt}.png"
+                assert hero_png.is_file(), f"mock imagen PNG missing: {hero_png}"
+                assert hero_png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+                pdf = scratch / "order_flow_media" / slug / f"flyer_{fmt}.pdf"
+                assert pdf.is_file(), f"flyer PDF missing: {pdf}"
+                size = pdf.stat().st_size
+                assert size > 10_000, f"{fmt}: PDF only {size}B — hero/QR not embedded?"
+                dl = await client.get(entry["pdf_url"])
+                assert dl.status_code == 200 and dl.content[:5] == b"%PDF-"
+            ok("mock imagen hero PNGs + print-ready flyer PDFs (>10KB) downloadable via /media")
+
+            r = await client.get(f"/api/shops/{slug}/batch-analytics")
+            assert r.status_code == 200, r.text
+            per_batch = r.json()["per_batch"]
+            # Both the solo order (step 10) and the group order (step 11) carried
+            # batch 'office-plaza1' -> flyer analytics sees 2 orders on it.
+            assert per_batch["office-plaza1"]["orders"] == 2
+            assert per_batch["office-plaza1"]["revenue"] == 73000 + expected_total
+            ok("batch analytics: 2 orders counted on batch 'office-plaza1' (solo + group)")
+
+            # -----------------------------------------------------------------
+            step(13, "VietQR: group-split member payload validates CRC (EMVCo TLV)")
+            # -----------------------------------------------------------------
+            vietqr_conf = fixture["shop"]["payment"]["vietqr"]  # payer's refund account (demo)
+            payloads = vietqr.group_split_payloads(result["split"], vietqr_conf)
+            assert set(payloads) == {"Binh", "Chi"}  # everyone except payer An
+            for name, payload in payloads.items():
+                assert vietqr.validate_crc(payload), f"{name}: CRC mismatch"
+                top = vietqr.parse_tlv(payload)
+                assert top["53"] == "704" and top["58"] == "VN" and top["01"] == "12"
+                merchant = vietqr.parse_tlv(top["38"])
+                assert merchant["00"] == "A000000727" and merchant["02"] == "QRIBFTTA"
+            assert vietqr.parse_tlv(payloads["Binh"])["54"] == "51000"
+            assert vietqr.parse_tlv(payloads["Chi"])["54"] == "114000"
+            assert vietqr.crc16_ccitt(b"123456789") == 0x29B1  # reference vector
+            ok("VietQR payloads for Binh (51.000đ) + Chi (114.000đ): CRC16-CCITT valid, NAPAS fields OK")
 
     asyncio.run(run_order_flow())
 
