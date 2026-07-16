@@ -7,20 +7,26 @@ Nguồn chân lý: [`ARCH.md`](ARCH.md) (nghiệp vụ) và [`docs/ENGINE-SPEC.m
 ## Quickstart
 
 ```bash
-# 1. Python env (3.12)
+# 1. Python env (3.12+)
 python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 
 # 2. Run the agent server (dev — no GEMINI_API_KEY needed)
-./.venv/bin/uvicorn agents.tiemquen_agent.server:app --reload
-# GET  http://127.0.0.1:8000/health
-# POST http://127.0.0.1:8000/api/shops        (empty body seeds the demo fixture)
-# GET  http://127.0.0.1:8000/api/shops/com-tam-co-ba
+./.venv/bin/uvicorn agents.tiemquen_agent.server:app --port 8787
 
-# 3. Run tests
+# 3. Seed the demo shop (empty body -> data/fixtures/demo_shop.json) + compose its A2UI variants
+curl -X POST http://127.0.0.1:8787/api/shops
+curl -X POST http://127.0.0.1:8787/api/shops/com-tam-co-ba/compose
+
+# 4. Open the pages
+#    Buyer  : http://127.0.0.1:8787/t/com-tam-co-ba
+#    Seller : http://127.0.0.1:8787/seller/
+#    Health : http://127.0.0.1:8787/health
+
+# 5. Run tests
 ./.venv/bin/python -m pytest -q
 
-# 4. Run the end-to-end smoke (mock mode, no API key)
+# 6. Run the end-to-end smoke (mock mode, no API key)
 ./.venv/bin/python scripts/e2e_smoke.py
 ```
 

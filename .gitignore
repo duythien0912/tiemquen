@@ -6,3 +6,7 @@ data/media/
 node_modules/
 .DS_Store
 data/composed/
+data/shops/
+data/slugs/
+data/orders/
+data/batches/
