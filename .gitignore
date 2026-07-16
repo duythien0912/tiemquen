@@ -8,3 +8,8 @@ node_modules/
 landing/.review/shots/
 landing/.review/node_modules/
 landing/.review/package-lock.json
+data/composed/
+data/shops/
+data/slugs/
+data/orders/
+data/batches/

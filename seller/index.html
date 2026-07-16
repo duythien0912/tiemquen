@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#B7410E">
+  <title>Tiệm Quen — app quán</title>
+  <link rel="manifest" href="/seller/manifest.json">
+  <link rel="icon" href="/seller/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/seller/styles.css">
+</head>
+<body>
+  <header class="tq-header">
+    <span class="tq-logo">Tiệm Quen</span>
+    <span class="tq-header-sub">app quán</span>
+    <span id="shop-badge" class="tq-shop-badge" hidden></span>
+  </header>
+
+  <main id="main">
+    <!-- ============================== TAB: ONBOARD ============================== -->
+    <section id="tab-onboard" class="tq-tab">
+      <!-- step 1: nguồn menu -->
+      <div id="ob-step-source" class="tq-card">
+        <h2>1 · Lấy menu của quán</h2>
+        <p class="tq-hint">Dán link ShopeeFood, hoặc chụp màn hình menu Grab/Shopee rồi upload.</p>
+        <label class="tq-label">Link quán trên sàn
+          <input id="ob-url" type="url" placeholder="https://shopeefood.vn/...">
+        </label>
+        <button id="ob-import-url" class="tq-btn">Import từ link</button>
+        <div class="tq-divider">hoặc</div>
+        <label class="tq-label">Ảnh chụp màn hình menu
+          <input id="ob-shots" type="file" accept="image/*" multiple>
+        </label>
+        <button id="ob-import-shots" class="tq-btn">Import từ ảnh</button>
+        <div class="tq-divider">hoặc</div>
+        <button id="ob-import-fixture" class="tq-btn tq-btn-ghost">Dùng menu demo (fixture)</button>
+        <p id="ob-source-msg" class="tq-msg"></p>
+      </div>
+
+      <!-- step 2: review -->
+      <div id="ob-step-review" class="tq-card" hidden>
+        <h2>2 · Kiểm tra menu</h2>
+        <p class="tq-hint">Sửa giá trực tiếp (thường rẻ hơn sàn 10–15% vì không mất hoa hồng), ẩn món không bán, thêm món chỉ bán trực tiếp.</p>
+        <div id="ob-warnings"></div>
+        <div class="tq-table-wrap"><table class="tq-table" id="ob-review-table">
+          <thead><tr><th>Món</th><th>Giá (đ)</th><th>Ẩn</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <details class="tq-add-dish">
+          <summary>+ Thêm món chỉ bán trực tiếp</summary>
+          <label class="tq-label">Tên món<input id="ob-add-name" type="text"></label>
+          <label class="tq-label">Giá (đ)<input id="ob-add-price" type="number" min="1000" step="1000"></label>
+          <label class="tq-label">Nhóm món<select id="ob-add-section"></select></label>
+          <button id="ob-add-dish" class="tq-btn tq-btn-ghost">Thêm món</button>
+        </details>
+        <button id="ob-to-interview" class="tq-btn">Tiếp tục →</button>
+      </div>
+
+      <!-- step 3: interview (3 câu, ARCH §3.1) -->
+      <div id="ob-step-interview" class="tq-card" hidden>
+        <h2>3 · Ba câu cuối</h2>
+        <label class="tq-label">Quán ship khu nào?
+          <input id="ob-ship-zone" type="text" placeholder="Bán kính 2km quanh Q.1...">
+        </label>
+        <label class="tq-label">Nhận tiền kiểu gì?
+          <select id="ob-payment">
+            <option value="cod">Trả khi nhận (mặc định)</option>
+            <option value="cod+vietqr">Trả khi nhận + VietQR chuyển khoản</option>
+          </select>
+        </label>
+        <div id="ob-vietqr-fields" hidden>
+          <label class="tq-label">Ngân hàng<input id="ob-bank" type="text" placeholder="VCB"></label>
+          <label class="tq-label">Số tài khoản<input id="ob-account" type="text"></label>
+          <label class="tq-label">Tên chủ TK<input id="ob-account-name" type="text"></label>
+        </div>
+        <label class="tq-label">Giảm bao nhiêu % cho đơn trực tiếp?
+          <input id="ob-discount" type="number" min="0" max="100" value="10">
+        </label>
+        <button id="ob-publish" class="tq-btn tq-btn-big">Mở tiệm 🚀</button>
+        <p id="ob-publish-msg" class="tq-msg"></p>
+      </div>
+
+      <!-- done -->
+      <div id="ob-step-done" class="tq-card" hidden>
+        <h2>Tiệm đã lên sóng 🎉</h2>
+        <p>Trang order của quán: <a id="ob-shop-link" href="#" target="_blank"></a></p>
+        <p class="tq-hint">Giờ qua tab <b>Tờ rơi</b> in bộ QR, và mở tab <b>Đơn</b> để nhận đơn.</p>
+        <button id="ob-goto-flyers" class="tq-btn">In tờ rơi ngay →</button>
+      </div>
+    </section>
+
+    <!-- ================================ TAB: ĐƠN ================================ -->
+    <section id="tab-orders" class="tq-tab" hidden>
+      <div class="tq-card" id="orders-need-slug" hidden>
+        <h2>Tiệm của bạn</h2>
+        <label class="tq-label">Slug tiệm (tiemquen.com/&lt;slug&gt;)
+          <input id="orders-slug-input" type="text" placeholder="com-tam-co-ba">
+        </label>
+        <button id="orders-slug-save" class="tq-btn">Xem đơn</button>
+      </div>
+      <div id="orders-live" hidden>
+        <div class="tq-row-between">
+          <h2>Đơn mới nhất</h2>
+          <span id="orders-poll-dot" class="tq-poll-dot" title="đang tự cập nhật">●</span>
+        </div>
+        <div id="orders-list"></div>
+        <h2>Đơn theo batch tờ rơi</h2>
+        <p class="tq-hint">Tờ dán chỗ nào ra đơn — in thêm đúng chỗ hiệu quả.</p>
+        <div class="tq-table-wrap"><table class="tq-table" id="batch-stats">
+          <thead><tr><th>Batch</th><th>Chỗ dán</th><th>Đơn</th><th>Doanh thu</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- =============================== TAB: TỜ RƠI =============================== -->
+    <section id="tab-flyers" class="tq-tab" hidden>
+      <div class="tq-card">
+        <h2>In tờ rơi mới</h2>
+        <p class="tq-hint">Mỗi lần in = 1 batch = 1 mã QR riêng, để biết tờ dán ở đâu ra đơn.</p>
+        <label class="tq-label">Dán ở đâu? (batch tag)
+          <input id="fl-location" type="text" placeholder="office plaza 1 / cửa quán / pantry A...">
+        </label>
+        <div class="tq-checks">
+          <label><input type="checkbox" class="fl-format" value="a5" checked> A5 — nhét túi đơn sàn</label>
+          <label><input type="checkbox" class="fl-format" value="a4" checked> A4 — poster pantry</label>
+          <label><input type="checkbox" class="fl-format" value="sticker"> Sticker vuông</label>
+        </div>
+        <button id="fl-generate" class="tq-btn tq-btn-big">Tạo tờ rơi (PDF in được)</button>
+        <p id="fl-msg" class="tq-msg"></p>
+        <div id="fl-results"></div>
+      </div>
+      <div class="tq-card">
+        <h2>Batch đã in</h2>
+        <div id="fl-batches"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tq-tabs">
+    <button data-tab="onboard" class="tq-tab-btn is-active">🏪<span>Mở tiệm</span></button>
+    <button data-tab="orders" class="tq-tab-btn">🔔<span>Đơn</span></button>
+    <button data-tab="flyers" class="tq-tab-btn">📄<span>Tờ rơi</span></button>
+  </nav>
+
+  <script src="/seller/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/seller/sw.js", { scope: "/seller/" }).catch(function () {});
+    }
+  </script>
+</body>
+</html>

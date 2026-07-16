@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tiemquen.com/schemas/menu_schema.json",
+  "title": "Tiệm Quen — chuẩn menu format",
+  "description": "Schema lõi (SPEC §4). Mọi nguồn import (OCR screenshot, HTML parse, manual) đổ về đúng format này; mọi phase sau (compose, buyer, flyer) chỉ đọc format này.",
+  "type": "object",
+  "required": ["shop", "menu", "source"],
+  "properties": {
+    "shop": {
+      "type": "object",
+      "description": "Thông tin tiệm — hiển thị trên trang order và tờ rơi.",
+      "required": ["id", "slug", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID nội bộ, bất biến (khoá trong shop store)."
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Slug URL công khai: tiemquen.com/<slug>. Chỉ a-z, 0-9, dấu gạch ngang."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tên tiệm hiển thị, giữ nguyên dấu tiếng Việt."
+        },
+        "tagline": {
+          "type": "string",
+          "description": "Câu tagline ngắn của tiệm (hiện trong HeroHeader)."
+        },
+        "phone": {
+          "type": "string",
+          "pattern": "^[0-9+][0-9 .-]{5,19}$",
+          "description": "SĐT liên hệ / nhận đơn."
+        },
+        "zalo": {
+          "type": "string",
+          "description": "SĐT hoặc handle Zalo (đường 'Đặt qua Zalo')."
+        },
+        "address": {
+          "type": "string",
+          "description": "Địa chỉ quán."
+        },
+        "hours": {
+          "type": "string",
+          "description": "Giờ mở cửa dạng chữ, ví dụ '06:00-14:00' hoặc 'T2-T7 6h-14h'."
+        },
+        "ship_zone": {
+          "type": "string",
+          "description": "Khu vực quán tự ship (quán tự giao, ~1-2km — ARCH §3.2)."
+        },
+        "payment": {
+          "type": "object",
+          "description": "Cấu hình thanh toán. COD mặc định; VietQR opt-in theo trust. Platform KHÔNG giữ tiền.",
+          "properties": {
+            "cod": {
+              "type": "boolean",
+              "default": true,
+              "description": "Trả khi nhận (mặc định bật)."
+            },
+            "vietqr": {
+              "type": "object",
+              "description": "VietQR trả trước, tiền vào thẳng tài khoản seller.",
+              "required": ["bank", "account"],
+              "properties": {
+                "bank": {
+                  "type": "string",
+                  "description": "Mã/tên ngân hàng (ví dụ 'VCB', 'Vietcombank')."
+                },
+                "account": {
+                  "type": "string",
+                  "description": "Số tài khoản nhận tiền."
+                },
+                "account_name": {
+                  "type": "string",
+                  "description": "Tên chủ tài khoản (hiện cho khách đối chiếu)."
+                },
+                "enabled_after_n_orders": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Chỉ hiện VietQR cho khách đã đặt thành công >= N lần với quán (trust gate)."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "direct_discount_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "% giảm cho đơn trực tiếp so với giá sàn (thường 10-15 vì không mất hoa hồng)."
+        },
+        "theme": {
+          "type": "object",
+          "description": "Theme tiệm — phần còn lại derive bằng code từ seed colors (SPEC §6).",
+          "required": ["seed_colors"],
+          "properties": {
+            "seed_colors": {
+              "type": "array",
+              "description": "Đúng 4 màu seed hex, contrast-checked lúc gen.",
+              "items": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "minItems": 4,
+              "maxItems": 4
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "menu": {
+      "type": "object",
+      "description": "Menu = sections (thứ tự hiển thị) + dishes (map id -> món).",
+      "required": ["sections", "dishes"],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "description": "Danh sách section theo thứ tự hiển thị; context rules có thể reorder client-side.",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "items"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "ID section, duy nhất trong menu."
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Tiêu đề section hiển thị (ví dụ 'Combo trưa')."
+              },
+              "items": {
+                "type": "array",
+                "description": "Danh sách dish_id thuộc section, theo thứ tự.",
+                "items": {"type": "string", "minLength": 1}
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "dishes": {
+          "type": "object",
+          "description": "Map dish_id -> món. Key phải khớp các dish_id trong sections[].items.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["name", "price"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Tên món."
+              },
+              "price": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Giá bán trực tiếp, VND (số nguyên, không thập phân)."
+              },
+              "platform_price": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Giá trên sàn (thường cao hơn ~15%) — dùng để so giá 'rẻ hơn sàn'."
+              },
+              "image_url": {
+                "type": "string",
+                "description": "URL ảnh món (đã rehost về storage riêng)."
+              },
+              "desc": {
+                "type": "string",
+                "description": "Mô tả ngắn."
+              },
+              "direct_only": {
+                "type": "boolean",
+                "default": false,
+                "description": "Món chỉ bán trực tiếp, không có trên sàn."
+              },
+              "hidden": {
+                "type": "boolean",
+                "default": false,
+                "description": "Seller ẩn món khỏi trang order (không xoá data)."
+              },
+              "sold_out": {
+                "type": "boolean",
+                "default": false,
+                "description": "Hết món — buyer page tự ẩn/disable, patch qua updateDataModel, không recompose."
+              },
+              "almost_out": {
+                "type": "boolean",
+                "default": false,
+                "description": "Sắp hết — hiện badge."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "description": "Nguồn import — flow sau KHÔNG quan tâm nguồn, chỉ đọc menu chuẩn.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ocr_screenshot", "html_parse", "manual"],
+          "description": "Đường import: OCR screenshot (đường chính), HTML parse, hoặc nhập tay."
+        },
+        "imported_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm import (ISO 8601)."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Độ tin cậy 0-100 của kết quả import (thấp -> UI review nhấn mạnh sửa tay)."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL nguồn nếu import từ link sàn."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

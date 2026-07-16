@@ -1,0 +1,54 @@
+<h1>Engine (compose) — implementation notes</h1>
+
+<h2>Decisions &amp; deviations a reviewer should confirm</h2>
+<ul>
+  <li><strong>Endpoint prefix:</strong> task said <code>POST /shops/{slug}/compose|patch</code>; implemented as
+    <code>POST /api/shops/{slug}/compose</code> and <code>/api/shops/{slug}/patch</code> to match the existing
+    <code>/api/shops</code> CRUD prefix (bare <code>/&lt;slug&gt;</code> is reserved for the public buyer URL space per
+    infra/publish.py). Also added <code>GET /api/shops/{slug}/composed/{variant}</code> so the dev buyer page can fetch
+    the cached A2UI.</li>
+  <li><strong>Patch coalescing:</strong> spec says patches are <em>appended</em>; a repeated patch on the SAME data path
+    replaces the previous trailing patch message instead of appending again, so a dish toggled sold-out N times doesn't
+    grow the cached file forever. Patches on different paths still stack in order. (compose/cache.py::patch_data)</li>
+  <li><strong>Validator repair vs raise policy (SPEC §1 only lists the repairs):</strong> repairable → fix + warning
+    (missing version, inferable action key, missing createSurface/surfaceId/root, bare childIds list/pointer, raw
+    literals wrapped into leaf shapes, dangling child refs pruned, malformed events/props dropped). Unrepairable →
+    <code>A2UIValidationError</code> (uninferable action key, missing/empty components, root id absent, bad
+    updateDataModel path, component type not in catalog when a catalog is passed) — real mode catches this to drive the
+    one correction-prompt retry.</li>
+  <li><strong>Mock composer is held to zero warnings:</strong> template output runs through the same validator as LLM
+    output and raises if any repair fired — keeps the deterministic path honest and the cache guaranteed-clean.</li>
+  <li><strong>DishCard component ids are section-scoped</strong> (<code>card_&lt;section_id&gt;_&lt;dish_id&gt;</code>):
+    the same dish can appear in two sections (combo trưa reuses regular dishes) and flat-wire ids must be unique. The
+    dish identity travels in the <code>onPress</code> event context (<code>dishId</code>) and in the
+    <code>/prices|/soldout|/almostout</code> binding paths, not in the component id.</li>
+  <li><strong>/patch also syncs the shop doc</strong> (menu.dishes[*].sold_out/almost_out/price) when the patch path is
+    recognizably <code>/soldout|/almostout|/prices/&lt;dish_id&gt;</code>, so the next structural recompose starts from
+    fresh flags instead of silently reverting them. Unrecognized paths patch the cache only.</li>
+  <li><strong>GroupOrderButton exists in every variant</strong> — office batch places it right under the hero
+    (promoted, ARCH §5.3), table batch places it after the sections. Client context rules can still re-promote without
+    recompose.</li>
+  <li><strong>Racing:</strong> <code>race_compose()</code> is async first-valid-wins with loser cancellation;
+    <code>race_sync()</code> wraps a blocking compose call thread-per-racer (google-genai calls in composer.py are
+    sync). Invalid results (exceptions) are skipped until a valid one lands; all-fail raises <code>RaceError</code>
+    with the individual errors. Only wired into real mode, gated by <code>RACE_ENABLED</code>/<code>RACE_COUNT</code>.</li>
+  <li><strong>Theme seed roles are derived, not positional:</strong> bg = lightest seed (lightened 65% toward white),
+    text = darkest seed, accent = most saturated of the two middle seeds; success/warn are fixed hues tinted 12% toward
+    the accent. Every pair in <code>TEXT_PAIRS</code> is force-nudged to WCAG ≥ 4.5 (deterministic 15% steps toward
+    black/white with a pole fallback), so even degenerate seeds (all-black, all-white, mid-gray) yield a compliant
+    palette.</li>
+  <li><strong>Variant naming:</strong> <code>&lt;batch&gt;-&lt;daypart&gt;</code> = office|table × lunch|regular → 4
+    cached files. Lunch reordering is a heuristic on section titles (accent-folded match of "combo"/"trưa"); menus with
+    no such section produce a lunch variant identical in structure to regular — still cached separately as spec'd.</li>
+  <li><code>data/composed/</code> added to .gitignore — it is runtime cache output, same class as
+    <code>data/media/</code>.</li>
+</ul>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Real-mode prompt/model (<code>gemini-flash-latest</code>, catalog+menu+theme inline, &lt;a2ui-json&gt; wrapper,
+    1 correction retry) is written but has never been exercised against the live API — needs a smoke run once a key is
+    available.</li>
+  <li>Should <code>/patch</code> recompose-on-miss (currently returns <code>patched_variants: []</code> when the shop
+    was never composed)?</li>
+</ul>

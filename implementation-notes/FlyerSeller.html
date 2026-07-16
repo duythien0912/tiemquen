@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Notes — Flyer generation + seller PWA</title>
+<h1>Flyer generation + seller PWA — decisions &amp; open questions</h1>
+
+<h2>1. VietQR "known-good reference vector" = CRC standard check value, not a memorized payload</h2>
+<p>The task asks to unit-test the EMVCo payload "against a known-good reference vector". I did NOT
+hardcode a full remembered VietQR string as golden (a wrongly-remembered constant would bake a bug
+into the test as truth). Instead the tests pin (a) the universally published CRC-16/CCITT-FALSE check
+value <code>crc16("123456789") == 0x29B1</code> (the exact CRC EMVCo mandates: poly 0x1021, init
+0xFFFF, no reflect/xorout), and (b) structural TLV assertions on our own payload: field order
+00,01,38,53,[54],58,[62],63; NAPAS GUID <code>A000000727</code>; service <code>QRIBFTTA</code>;
+BIN/account nesting; currency 704; CRC round-trip + tamper detection.
+<b>Reviewer action:</b> scan one generated QR (<code>infra/vietqr.qr_png</code>) with a real banking
+app once before pilot — that is the only true end-to-end vector.</p>
+
+<h2>2. Bank BIN table is a hardcoded subset</h2>
+<p><code>vietqr.BANK_BINS</code> covers ~12 common banks; unknown bank names raise, but a literal
+6-digit NAPAS BIN passes through. Full NAPAS list is a data-file concern for later.</p>
+
+<h2>3. Transfer note is ASCII-folded</h2>
+<p>Field 62-08 strips diacritics/punctuation ("Bình trả" → "Binh tra"): bank cores routinely mangle
+UTF-8 in transfer notes and EMV length counting is per-character; ASCII keeps chars==bytes.</p>
+
+<h2>4. Imagen palette → shop theme; publish ORDER matters</h2>
+<p>ENGINE-SPEC §6: theme comes from the 4 imagen seed colors. <code>POST /api/shops/{slug}/hero</code>
+persists the palette into <code>shop.theme.seed_colors</code> — but only when the shop has no theme
+yet (never overwrites a seller-picked theme). Because compose/recompose REQUIRES theme, the seller
+PWA publish sequence is: <code>POST /api/shops</code> → <code>POST /hero</code> →
+<code>PATCH /menu</code> (edits, recomposes) → <code>POST /compose</code>. Reordering hero after the
+menu PATCH breaks publish for imported (theme-less) shops — encoded in seller/app.js, verified in
+scripts/e2e_smoke and an ad-hoc publish-sequence check.</p>
+
+<h2>5. Mock hero deliberately incompressible (and A5/A4 share one aspect ratio)</h2>
+<p>Mock mode renders gradient+noise (PIL <code>effect_noise</code>) instead of a flat fill so the
+downstream PDFs have realistic size (&gt;10KB gate is meaningful; flat-color PNGs flate down to ~3KB
+PDFs). Cost: mock flyer PDFs are ~2.5MB — fine for dev, and real photos are similar. Gemini image
+generation only supports fixed ratios; A5/A4 (both ≈1:1.414 portrait) use "3:4" (nearest portrait),
+sticker "1:1"; the PDF draws full-bleed stretch, and the prompt's safe-zone constraint keeps the QR
+corner usable after the small distortion.</p>
+
+<h2>6. TTL cleanup scope</h2>
+<p><code>imagen.cleanup_expired()</code> deletes only <code>hero_*.png</code> /
+<code>hero_*.palette.json</code>. Rehosted dish images (infra/media.py) and flyer PDFs have no TTL —
+dish images must survive source-CDN death (ARCH §4.5), and PDFs are cheap re-exports.</p>
+
+<h2>7. Added GET /api/shops/{slug}/orders (deviation: endpoint not in task list)</h2>
+<p>The Đơn tab needs a seller-facing order list to poll; OrderStore.list_by_shop existed with no HTTP
+surface. Added read-only endpoint, newest-first, limit param. Zero LLM, seller-side only.</p>
+
+<h2>8. Batch id embeds the folded location tag</h2>
+<p><code>create_batch("office plaza 1","a5")</code> → <code>office-plaza-1-a5-xxxx</code> so
+buyer/context_rules.js's existing regex (office/văn phòng → office variant) classifies straight off
+the <code>?b=</code> value with no server lookup, and analytics rows are human-readable.</p>
+
+<h2>9. Open question: whose account refunds a group split?</h2>
+<p><code>vietqr.group_split_payloads()</code> fills the group-order placeholders from a passed
+account config. The e2e demo uses the SHOP's VietQR account, but ARCH §3.3 says members repay the
+<em>payer</em> (trưởng kèo) — a buyer whose personal bank account we never collect. MVP ships the
+helper + contract; the payer-account capture UX (ask closer for bank/STK at close time?) is an open
+product call for the group-order page phase.</p>

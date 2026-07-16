@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiệm Quen — trang order</title>
+  <link rel="stylesheet" href="/buyer/styles.css">
+</head>
+<body>
+  <div id="app"><p class="tq-loading">Đang tải menu…</p></div>
+
+  <!-- Renderer walks the pre-composed A2UI JSON (ZERO LLM on this path) -->
+  <script src="/buyer/renderer.js"></script>
+  <script src="/buyer/context_rules.js"></script>
+  <script src="/buyer/order.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var SURFACE_ID = "shop_menu";
+      var app = document.getElementById("app");
+
+      function showError(msg) {
+        app.innerHTML = '<p class="tq-error">' + msg + "</p>";
+      }
+
+      function applyTheme(renderer) {
+        var theme = renderer.getData(SURFACE_ID, "/theme") || {};
+        var root = document.documentElement.style;
+        Object.keys(theme).forEach(function (key) {
+          root.setProperty("--tq-" + key.replace(/_/g, "-"), theme[key]);
+        });
+      }
+
+      // Server-injected bootstrap (GET /t/{slug}, ENGINE-SPEC §9/§3) wins;
+      // ?slug= query param is the dev/test fallback for the plain static
+      // mount at /buyer/index.html (no per-request injection there).
+      var injected = window.__TIEMQUEN__ || {};
+      var qs = new URLSearchParams(location.search);
+      var slug = injected.slug || qs.get("slug");
+      if (!slug) {
+        showError("Thiếu mã tiệm (slug) — quét lại QR trên tờ rơi.");
+        return;
+      }
+
+      var ctx = TQContextRules.resolveContext(location);
+
+      function loadVariant(variant) {
+        return fetch("/api/shops/" + encodeURIComponent(slug) + "/composed/" + encodeURIComponent(variant))
+          .then(function (r) {
+            if (r.ok) return r.json();
+            if (variant !== "table-regular") return loadVariant("table-regular"); // safe fallback
+            throw new Error("menu chưa sẵn sàng");
+          });
+      }
+
+      loadVariant(ctx.variant)
+        .then(function (messages) {
+          var renderer = TQRenderer.create(app);
+          renderer.applyMessages(messages);
+          applyTheme(renderer);
+
+          var order = new TQOrder({ renderer: renderer, apiBase: "", slug: slug, context: ctx });
+
+          TQContextRules.applyReorderCard(renderer, SURFACE_ID, slug);
+          renderer.render(SURFACE_ID);
+
+          // Fresh sold-out flags in the background — never blocks first paint.
+          TQContextRules.applySoldoutPatch(renderer, SURFACE_ID, "", slug).then(function (changed) {
+            if (changed) renderer.render(SURFACE_ID);
+          });
+
+          window.__TQ_ORDER__ = order; // debug hook, harmless in prod
+        })
+        .catch(function (err) {
+          showError("Không tải được menu — thử lại sau (" + err.message + ").");
+        });
+    })();
+  </script>
+</body>
+</html>

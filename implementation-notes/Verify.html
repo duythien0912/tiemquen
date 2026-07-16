@@ -1,0 +1,24 @@
+<section id="verify-sweep-2026-07-16">
+  <h2>Verification sweep — 2026-07-16</h2>
+  <ul>
+    <li><strong>Host Python quirk (reviewer FYI):</strong> Homebrew CPython 3.13/3.14 on this
+      machine has a broken <code>pyexpat</code> (libexpat symbol mismatch with macOS 26.1), so
+      <code>python3 -m venv</code> fails at ensurepip. The fresh-install check was done with a
+      uv-managed standalone CPython 3.12.12 instead. README keeps the generic
+      <code>python3 -m venv .venv</code> instruction (3.12+); nothing in the repo depends on the workaround.</li>
+    <li><strong>Golden-rule judgment call:</strong> <code>POST /orders/parse-text</code> lives under
+      the <code>/orders</code> prefix but is the SELLER paste-Zalo-chat path (ARCH §3.2 reverse flow),
+      i.e. explicitly-allowed compose-time LLM ("parse đơn text"). It is never called by
+      buyer/*.js. Counted as compliant; flagged here in case a reviewer wants it moved under
+      <code>/api/</code> to keep the buyer-facing prefix visibly LLM-free.</li>
+    <li><strong>README quickstart now uses <code>--port 8787</code></strong> (the exact command the sweep
+      verified verbatim) and adds the compose step — without <code>POST .../compose</code> the buyer page
+      boots but the variant fetch 404s (page HTML is served regardless).</li>
+    <li><strong>.gitignore extended</strong> with <code>data/shops|slugs|orders|batches/</code>: booting the
+      real server writes dev-storage JSON there; previously only <code>data/media/</code> and
+      <code>data/composed/</code> were ignored, so a dev run dirtied <code>git status</code>.</li>
+    <li><strong>Payload measurement definition:</strong> reported 48.7&nbsp;KB = page assets
+      (index.html + 3 JS + styles.css) + ONE composed variant (what a buyer actually downloads);
+      all-4-variants worst case 94.2&nbsp;KB. Both uncompressed, both under the 150&nbsp;KB target.</li>
+  </ul>
+</section>
