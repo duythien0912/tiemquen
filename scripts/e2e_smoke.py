@@ -367,7 +367,7 @@ def main() -> int:
                 hero_png = scratch / "order_flow_media" / slug / f"hero_{fmt}.png"
                 assert hero_png.is_file(), f"mock imagen PNG missing: {hero_png}"
                 assert hero_png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
-                pdf = scratch / "order_flow_media" / slug / f"flyer_{fmt}.pdf"
+                pdf = scratch / "order_flow_media" / slug / f"flyer_{fmt}_{batch_ids[fmt]}.pdf"
                 assert pdf.is_file(), f"flyer PDF missing: {pdf}"
                 size = pdf.stat().st_size
                 assert size > 10_000, f"{fmt}: PDF only {size}B — hero/QR not embedded?"

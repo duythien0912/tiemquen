@@ -120,11 +120,39 @@
       body.appendChild(priceRow);
       if (almostOut && !soldOut) body.appendChild(el("span", "tq-badge tq-badge-warn", "Sắp hết"));
       card.appendChild(body);
-      var btn = el("button", "tq-btn tq-btn-add", soldOut ? "Hết món" : "Thêm");
-      btn.type = "button";
-      btn.disabled = soldOut;
-      if (!soldOut) this.wireEvent(btn, sid, comp, "onPress");
-      card.appendChild(btn);
+
+      // Số lượng hiện có trong giỏ (order.js sync /cart/qty) -> nút "Thêm"
+      // biến thành stepper [− n +] để bấm nhầm còn gỡ ra được.
+      var dishId = this._eventContext(comp.onPress, dm).dishId;
+      var qty = (dishId && getPath(dm, "/cart/qty/" + dishId)) || 0;
+      if (soldOut) {
+        var btn = el("button", "tq-btn tq-btn-add", "Hết món");
+        btn.type = "button";
+        btn.disabled = true;
+        card.appendChild(btn);
+      } else if (!qty) {
+        var add = el("button", "tq-btn tq-btn-add", "Thêm");
+        add.type = "button";
+        this.wireEvent(add, sid, comp, "onPress");
+        card.appendChild(add);
+      } else {
+        var self = this;
+        var stepper = el("div", "tq-stepper");
+        var minus = el("button", "tq-btn tq-step-btn", "−");
+        minus.type = "button";
+        minus.setAttribute("aria-label", "Bớt 1");
+        minus.addEventListener("click", function () {
+          self._emit("remove_from_cart", { dishId: dishId }, comp.id);
+        });
+        stepper.appendChild(minus);
+        stepper.appendChild(el("span", "tq-step-qty", String(qty)));
+        var plus = el("button", "tq-btn tq-step-btn", "+");
+        plus.type = "button";
+        plus.setAttribute("aria-label", "Thêm 1");
+        this.wireEvent(plus, sid, comp, "onPress");
+        stepper.appendChild(plus);
+        card.appendChild(stepper);
+      }
       return card;
     },
     ComboCard: function (sid, comp, dm) {
@@ -167,7 +195,9 @@
     },
     CheckoutForm: function (sid, comp, dm) {
       var form = document.createElement("form");
-      form.className = "tq-checkout";
+      // Giỏ trống -> giấu form (đỡ mời gọi submit sớm + alert "giỏ trống").
+      var count = getPath(dm, "/cart/count") || 0;
+      form.className = "tq-checkout" + (count ? "" : " tq-hidden");
       form.id = "tq-checkout-form";
       if (comp.title) form.appendChild(el("h2", null, resolveLeaf(comp.title, dm)));
       form.appendChild(this._field("name", (comp.nameLabel && resolveLeaf(comp.nameLabel, dm)) || "Tên", "text", true));
@@ -306,6 +336,12 @@
     if (name !== "note") input.type = type;
     input.name = name;
     if (required) input.required = true;
+    if (type === "tel") {
+      // Số VN: 0xxxxxxxxx (10 số) hoặc +84… — quán phải gọi lại được.
+      input.pattern = "(0|\\+84)[0-9\\s.]{8,12}";
+      input.inputMode = "tel";
+      input.title = "Số điện thoại VN, ví dụ 0909123456";
+    }
     wrap.appendChild(input);
     return wrap;
   };
@@ -332,9 +368,22 @@
   Renderer.prototype.render = function (surfaceId) {
     var s = this._surface(surfaceId);
     var root = s.components.get(s.root);
+
+    // Full rebuild — nhưng khách đang gõ dở tên/SĐT rồi bấm "Thêm" món nữa
+    // thì không được mất chữ: chụp giá trị input theo name, trả lại sau render.
+    var saved = {};
+    this.container.querySelectorAll("input[name], textarea[name]").forEach(function (inp) {
+      if (inp.value) saved[inp.name] = inp.value;
+    });
+
     this.container.innerHTML = "";
     if (!root) return;
     this.container.appendChild(this._renderComponent(surfaceId, root));
+
+    Object.keys(saved).forEach(function (name) {
+      var inp = this.container.querySelector('[name="' + name + '"]');
+      if (inp && !inp.value) inp.value = saved[name];
+    }, this);
   };
 
   global.TQRenderer = { create: function (container) { return new Renderer(container); }, vnd: vnd };

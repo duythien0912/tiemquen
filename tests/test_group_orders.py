@@ -141,3 +141,61 @@ def test_cannot_close_with_no_members(stores):
     g = group_store.create("shop_x", "shop-x")
     with pytest.raises(GroupOrderError):
         group_store.close(g["id"], order_store, "An", {"name": "An", "phone": "0909", "address": "12 X"})
+
+
+def test_close_with_payer_vietqr_fills_real_payloads(stores):
+    group_store, order_store = stores
+    g = group_store.create("shop_x", "shop-x")
+    group_store.add_member_items(g["id"], "An", [_item("d1", "Cơm sườn", 35000, 1)])
+    group_store.add_member_items(g["id"], "Binh", [_item("d2", "Trà đá", 3000, 2)])
+
+    result = group_store.close(
+        g["id"], order_store, "An",
+        {"name": "An", "phone": "0909111222", "address": "45 Y"},
+        payer_vietqr={"bank": "VCB", "account": "0071000123456"},
+    )
+    split = result["split"]
+
+    assert "vietqr" not in split["An"] and "vietqr_placeholder" not in split["An"]
+    qr = split["Binh"]["vietqr"]
+    assert "vietqr_placeholder" not in split["Binh"]
+    assert qr["payee"] == "An"
+    assert qr["amount"] == 6000
+    assert qr["bank"] == "VCB"
+    assert qr["account"] == "0071000123456"
+
+    from infra import vietqr as vq
+
+    assert vq.validate_crc(qr["payload"])
+    tlv = vq.parse_tlv(qr["payload"])
+    assert tlv["54"] == "6000"  # dynamic amount
+    assert qr["deep_link"].startswith("https://dl.vietqr.io/pay?")
+    assert "6.000đ" in qr["copy_text"] or "6000" in qr["copy_text"]
+
+
+def test_close_with_unknown_bank_fails_before_creating_order(stores):
+    group_store, order_store = stores
+    g = group_store.create("shop_x", "shop-x")
+    group_store.add_member_items(g["id"], "An", [_item("d1", "Cơm sườn", 35000, 1)])
+
+    with pytest.raises(GroupOrderError):
+        group_store.close(
+            g["id"], order_store, "An",
+            {"name": "An", "phone": "0909", "address": "12 X"},
+            payer_vietqr={"bank": "NGANHANGLA", "account": "123"},
+        )
+    # Close failed cleanly: group still open, NO orphan order was created.
+    assert group_store.get(g["id"])["status"] == "open"
+    assert order_store.list_by_shop("shop-x") == []
+
+
+def test_close_without_payer_vietqr_keeps_placeholder_shape(stores):
+    group_store, order_store = stores
+    g = group_store.create("shop_x", "shop-x")
+    group_store.add_member_items(g["id"], "An", [_item("d1", "Cơm sườn", 35000, 1)])
+    group_store.add_member_items(g["id"], "Binh", [_item("d2", "Trà đá", 3000, 1)])
+
+    result = group_store.close(
+        g["id"], order_store, "An", {"name": "An", "phone": "0909", "address": "12 X"}
+    )
+    assert result["split"]["Binh"]["vietqr_placeholder"]["bank"] is None

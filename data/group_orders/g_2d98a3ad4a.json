@@ -1,0 +1,54 @@
+{
+  "id": "g_2d98a3ad4a",
+  "shop_id": "shop_comtamcoba",
+  "shop_slug": "com-tam-co-ba",
+  "batch_id": "office",
+  "status": "closed",
+  "members": {
+    "An": {
+      "items": [
+        {
+          "dish_id": "dish_suon_nuong",
+          "name": "Cơm tấm sườn nướng",
+          "price": 35000,
+          "qty": 1
+        }
+      ],
+      "subtotal": 35000
+    },
+    "Bình": {
+      "items": [
+        {
+          "dish_id": "dish_suon_bi_cha",
+          "name": "Cơm tấm sườn bì chả",
+          "price": 45000,
+          "qty": 1
+        }
+      ],
+      "subtotal": 45000
+    }
+  },
+  "order_id": "ord_b72620f70d0e",
+  "created_at": "2026-07-17T03:30:58.036430+00:00",
+  "closed_at": "2026-07-17T03:31:03.516955+00:00",
+  "split": {
+    "An": {
+      "amount": 35000,
+      "is_payer": true
+    },
+    "Bình": {
+      "amount": 45000,
+      "is_payer": false,
+      "vietqr": {
+        "payee": "An",
+        "amount": 45000,
+        "note": "g_2d98a3ad4a Bình tra An",
+        "bank": "MB",
+        "account": "0123456789",
+        "payload": "00020101021238540010A00000072701240006970422011001234567890208QRIBFTTA53037045405450005802VN62280824g_2d98a3ad4a Binh tra An6304BF87",
+        "deep_link": "https://dl.vietqr.io/pay?app=pick&ba=0123456789@970422&am=45000&tn=g_2d98a3ad4a%20Binh%20tra%20An",
+        "copy_text": "Ngân hàng: MB\nSố TK: 0123456789\nChủ TK: An\nSố tiền: 45.000đ\nNội dung: g_2d98a3ad4a Binh tra An"
+      }
+    }
+  }
+}

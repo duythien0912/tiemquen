@@ -25,7 +25,7 @@ def test_export_flyers_all_formats_creates_real_pdfs(fixture, tmp_path):
     paths = pdf_export.export_flyers(fixture, batch_ids, media_dir=tmp_path)
     assert set(paths) == set(batch_ids)
     for fmt, path in paths.items():
-        assert path == tmp_path / "com-tam-co-ba" / f"flyer_{fmt}.pdf"
+        assert path == tmp_path / "com-tam-co-ba" / f"flyer_{fmt}_{batch_ids[fmt]}.pdf"
         assert path.is_file()
         data = path.read_bytes()
         assert data[:5] == b"%PDF-"

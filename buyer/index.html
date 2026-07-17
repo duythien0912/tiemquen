@@ -59,14 +59,19 @@
           renderer.applyMessages(messages);
           applyTheme(renderer);
 
-          var order = new TQOrder({ renderer: renderer, apiBase: "", slug: slug, context: ctx });
+          var order = new TQOrder({
+            renderer: renderer, apiBase: "", slug: slug, context: ctx,
+            shop: injected.shop || {},
+          });
 
           TQContextRules.applyReorderCard(renderer, SURFACE_ID, slug);
           renderer.render(SURFACE_ID);
+          order.resumeActiveOrder(); // đơn đang chạy (<2h) -> hiện lại recap + poll
 
           // Fresh sold-out flags in the background — never blocks first paint.
+          // KHÔNG render đè khi màn recap đơn đang hiển thị (resumeActiveOrder).
           TQContextRules.applySoldoutPatch(renderer, SURFACE_ID, "", slug).then(function (changed) {
-            if (changed) renderer.render(SURFACE_ID);
+            if (changed && !order.isRecapActive()) renderer.render(SURFACE_ID);
           });
 
           window.__TQ_ORDER__ = order; // debug hook, harmless in prod

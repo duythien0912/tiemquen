@@ -65,7 +65,12 @@
     try {
       localStorage.setItem(
         lastOrderKey(slug),
-        JSON.stringify({ items: order.items, total: order.total, at: new Date().toISOString() })
+        JSON.stringify({
+          id: order.id, // để mở lại trang là thấy đơn đang chạy (resume poll)
+          items: order.items,
+          total: order.total,
+          at: new Date().toISOString(),
+        })
       );
     } catch (e) {
       /* localStorage unavailable (private mode) — reorder just won't show next time */

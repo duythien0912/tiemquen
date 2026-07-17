@@ -6,9 +6,10 @@ closer chốt (POST .../close) -> gộp toàn bộ item thành 1 `Order` thật 
 + tính lại tiền mỗi người theo ĐÚNG những gì họ order (không chia đều) +
 placeholder VietQR hoàn tiền cho người trả hộ (payer = closer).
 
-VietQR is INTERFACE ONLY here — real bank-deeplink QR generation is
-`infra/vietqr.py` in a later phase (ARCH §5.4); this just shapes the payload
-so the buyer UI and that future module agree on a contract now.
+VietQR: if the closer hands over their bank account at close time
+(`payer_vietqr={"bank","account"}`), every non-payer entry carries a real
+scannable payload + bank-app deep link + copy text from `infra/vietqr.py`
+(ARCH §5.4). Without it, the entry keeps the `vietqr_placeholder` shape.
 """
 
 from __future__ import annotations
@@ -99,11 +100,14 @@ class GroupOrderStore:
         closer_name: str,
         customer: dict[str, Any],
         variant: str | None = None,
+        payer_vietqr: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Chốt kèo: merge all members' items into ONE real Order (1 ship),
         compute the per-member split (each pays exactly what they ordered —
         NOT an equal division, so totals never leave a rounding remainder),
-        and attach a VietQR-placeholder for everyone except the payer.
+        and attach repayment info for everyone except the payer: a real
+        VietQR payload/deep-link/copy-text when `payer_vietqr` carries the
+        closer's {"bank", "account"}, else the placeholder shape.
 
         Returns {"group_order": <doc>, "order": <order doc>, "split": {...}}.
         """
@@ -116,6 +120,17 @@ class GroupOrderStore:
             raise GroupOrderError(
                 f"người chốt {closer_name!r} phải tự order ít nhất 1 món (là người trả hộ)"
             )
+
+        payer_bank = (payer_vietqr or {}).get("bank") or None
+        payer_account = (payer_vietqr or {}).get("account") or None
+        has_payer_qr = bool(payer_bank and payer_account)
+        if has_payer_qr:
+            from infra import vietqr
+
+            try:  # validate the closer's bank BEFORE the real order exists
+                vietqr.bank_bin(payer_bank)
+            except vietqr.VietQRError as exc:
+                raise GroupOrderError(str(exc)) from exc
 
         # Merge items across members into one order line list (same dish_id
         # across members collapses into a single qty for the seller ticket).
@@ -145,13 +160,41 @@ class GroupOrderStore:
             amount = member["subtotal"]
             entry: dict[str, Any] = {"amount": amount, "is_payer": name == closer_name}
             if name != closer_name and amount > 0:
-                entry["vietqr_placeholder"] = {
-                    "payee": closer_name,
-                    "amount": amount,
-                    "note": f"{gid} {name} tra {closer_name}",
-                    "bank": None,  # interface only — infra/vietqr.py fills this in later phase
-                    "account": None,
-                }
+                note = f"{gid} {name} tra {closer_name}"
+                qr_entry = None
+                if has_payer_qr:
+                    from infra import vietqr
+
+                    try:
+                        qr_entry = {
+                            "payee": closer_name,
+                            "amount": amount,
+                            "note": note,
+                            "bank": payer_bank,
+                            "account": payer_account,
+                            "payload": vietqr.build_payload(
+                                payer_bank, payer_account, amount=amount, message=note
+                            ),
+                            "deep_link": vietqr.deep_link(
+                                payer_bank, payer_account, amount=amount, message=note
+                            ),
+                            "copy_text": vietqr.copy_text(
+                                payer_bank, payer_account,
+                                account_name=closer_name, amount=amount, message=note,
+                            ),
+                        }
+                    except vietqr.VietQRError:
+                        qr_entry = None  # order already exists — degrade, never fail the close
+                if qr_entry is not None:
+                    entry["vietqr"] = qr_entry
+                else:
+                    entry["vietqr_placeholder"] = {
+                        "payee": closer_name,
+                        "amount": amount,
+                        "note": note,
+                        "bank": None,
+                        "account": None,
+                    }
             split[name] = entry
         assert sum(v["amount"] for v in split.values()) == order_total, (
             "per-member split must sum exactly to the order total — no equal-split rounding"

@@ -86,7 +86,9 @@ body {
 .tq-btn {
   border: none;
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 12px 18px; /* >=44px cao — khách bấm bằng ngón cái trên điện thoại */
+  min-height: 44px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   background: var(--tq-accent);
@@ -95,6 +97,38 @@ body {
 .tq-btn:disabled { background: #ccc; color: #666; cursor: not-allowed; }
 .tq-btn-group { display: block; width: calc(100% - 32px); margin: 10px 16px; }
 .tq-btn-reorder { flex: none; }
+
+/* stepper [− n +] khi món đã trong giỏ */
+.tq-stepper { display: flex; align-items: center; gap: 4px; }
+.tq-step-btn {
+  min-width: 44px; min-height: 44px; padding: 0;
+  font-size: 1.3rem; line-height: 1;
+}
+.tq-step-qty {
+  min-width: 28px; text-align: center;
+  font-weight: 700; font-size: 1.05rem;
+}
+
+/* màn recap sau khi đặt đơn */
+.tq-recap { max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
+.tq-recap-card {
+  margin: 0 16px 16px;
+  padding: 16px;
+  background: var(--tq-surface);
+  border-radius: 14px;
+}
+.tq-recap-card h2 { margin: 0 0 10px; font-size: 1.1rem; }
+.tq-recap-items { list-style: none; margin: 0; padding: 0; }
+.tq-recap-items li {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 7px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+.tq-recap-total { margin: 12px 0 0; font-size: 1rem; }
+.tq-btn-call, .tq-btn-more {
+  display: block; width: calc(100% - 0px); margin-top: 12px;
+  text-align: center; text-decoration: none;
+}
+.tq-btn-more { width: calc(100% - 32px); margin: 4px 16px 0; background: var(--tq-text); color: #fff; }
 
 .tq-reviews { padding: 6px 16px; color: var(--tq-text-muted); font-size: 0.88rem; }
 .tq-reviews-quote { margin: 4px 0 0; font-style: italic; }

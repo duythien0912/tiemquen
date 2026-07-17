@@ -1,7 +1,7 @@
 /* Tiệm Quen seller PWA — minimal service worker: cache the app SHELL only.
  * API/orders are always network (đơn sống, không cache); shell cache-first
  * with background refresh so the app opens instantly ở sóng yếu. */
-var CACHE = "tq-seller-shell-v1";
+var CACHE = "tq-seller-shell-v3";
 var SHELL = [
   "/seller/",
   "/seller/index.html",

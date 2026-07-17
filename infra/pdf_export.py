@@ -146,13 +146,15 @@ def export_flyer(
     media_dir: Path | None = None,
     base_url: str = DEFAULT_BASE_URL,
 ) -> Path:
-    """Render 1 flyer PDF -> data/media/<slug>/flyer_<fmt>.pdf."""
+    """Render 1 flyer PDF -> data/media/<slug>/flyer_<fmt>_<batch_id>.pdf.
+    Batch-id-suffixed so a new print run never overwrites an older batch's
+    PDF (each batch carries its own tracking QR)."""
     if fmt not in FORMAT_SIZES_MM:
         raise PDFExportError(f"format {fmt!r} không hợp lệ; chọn {sorted(FORMAT_SIZES_MM)}")
     shop = shop_doc["shop"]
     slug = shop["slug"]
     media_base = Path(media_dir or DEFAULT_MEDIA_DIR)
-    out_path = media_base / slug / f"flyer_{fmt}.pdf"
+    out_path = media_base / slug / f"flyer_{fmt}_{batch_id}.pdf"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     hero = imagen.generate_hero(shop_doc, fmt, media_dir=media_base)

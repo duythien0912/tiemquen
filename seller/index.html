@@ -33,7 +33,7 @@
         </label>
         <button id="ob-import-shots" class="tq-btn">Import từ ảnh</button>
         <div class="tq-divider">hoặc</div>
-        <button id="ob-import-fixture" class="tq-btn tq-btn-ghost">Dùng menu demo (fixture)</button>
+        <button id="ob-import-fixture" class="tq-btn tq-btn-ghost">Dùng menu mẫu</button>
         <p id="ob-source-msg" class="tq-msg"></p>
       </div>
 
@@ -113,6 +113,19 @@
       </div>
     </section>
 
+    <!-- ================================ TAB: MENU ================================ -->
+    <section id="tab-menu" class="tq-tab" hidden>
+      <div class="tq-card" id="menu-need-slug" hidden>
+        <p class="tq-hint">Chưa có tiệm — mở tiệm ở tab <b>Mở tiệm</b>, hoặc nhập slug ở tab <b>Đơn</b>.</p>
+      </div>
+      <div class="tq-card" id="menu-live" hidden>
+        <h2>Món hôm nay</h2>
+        <p class="tq-hint">Hết món → bấm <b>Còn/Hết</b>, áp dụng NGAY lên trang order (không cần dựng lại). Sửa giá xong bấm Lưu.</p>
+        <p id="menu-msg" class="tq-msg"></p>
+        <div id="menu-list"></div>
+      </div>
+    </section>
+
     <!-- =============================== TAB: TỜ RƠI =============================== -->
     <section id="tab-flyers" class="tq-tab" hidden>
       <div class="tq-card">
@@ -140,6 +153,7 @@
   <nav class="tq-tabs">
     <button data-tab="onboard" class="tq-tab-btn is-active">🏪<span>Mở tiệm</span></button>
     <button data-tab="orders" class="tq-tab-btn">🔔<span>Đơn</span></button>
+    <button data-tab="menu" class="tq-tab-btn">🍛<span>Menu</span></button>
     <button data-tab="flyers" class="tq-tab-btn">📄<span>Tờ rơi</span></button>
   </nav>
 

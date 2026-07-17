@@ -45,6 +45,9 @@
   function vnd(n) {
     return (n || 0).toLocaleString("vi-VN") + "đ";
   }
+  function fullUrl(path) {
+    return /^https?:/.test(path || "") ? path : location.origin + (path || "");
+  }
   function esc(s) {
     var div = document.createElement("div");
     div.textContent = s == null ? "" : String(s);
@@ -66,7 +69,10 @@
 
   // ------------------------------------------------------------------- tabs
 
-  var tabs = { onboard: $("tab-onboard"), orders: $("tab-orders"), flyers: $("tab-flyers") };
+  var tabs = {
+    onboard: $("tab-onboard"), orders: $("tab-orders"),
+    menu: $("tab-menu"), flyers: $("tab-flyers"),
+  };
   function showTab(name) {
     Object.keys(tabs).forEach(function (k) { tabs[k].hidden = k !== name; });
     document.querySelectorAll(".tq-tab-btn").forEach(function (btn) {
@@ -74,6 +80,7 @@
     });
     stopPolling();
     if (name === "orders") initOrdersTab();
+    if (name === "menu") initMenuTab();
     if (name === "flyers") initFlyersTab();
   }
   document.querySelectorAll(".tq-tab-btn").forEach(function (btn) {
@@ -275,6 +282,63 @@
     delivering: [{ label: "Đã giao xong", to: "done" }],
   };
 
+  // Trạng thái nội bộ (order_states.py) -> nhãn tiếng Việt cho badge.
+  var STATUS_VN = {
+    created: "Mới",
+    seller_seen: "Đã thấy",
+    confirmed: "Đã nhận",
+    delivering: "Đang giao",
+    done: "Xong",
+    cancelled: "Đã huỷ",
+    no_show_flagged: "Bom hàng?",
+  };
+
+  // ISO UTC -> giờ địa phương HH:MM (seller triage theo đồng hồ treo tường).
+  function localTime(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d)) return iso.slice(11, 16);
+    return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---- chuông đơn mới: beep + rung + nháy title (FCM thật chưa nối — poll
+  // là kênh duy nhất, seller phải NGHE thấy đơn chứ không thể nhìn màn hình cả buổi).
+  var knownOrderIds = null; // null = lần poll đầu (đừng kêu cho đơn cũ)
+  var titleFlashTimer = null;
+  function beep() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = beep._ctx || (beep._ctx = new Ctx());
+      if (ctx.state === "suspended") ctx.resume();
+      var t = ctx.currentTime;
+      [880, 1174.66].forEach(function (freq, i) { // "ting-ting" 2 nốt
+        var osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.001, t + i * 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.4, t + i * 0.18 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.18 + 0.16);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t + i * 0.18); osc.stop(t + i * 0.18 + 0.2);
+      });
+    } catch (e) { /* audio bị chặn — vẫn còn rung + nháy title */ }
+  }
+  function alertNewOrders(count) {
+    beep();
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    if (titleFlashTimer) clearInterval(titleFlashTimer);
+    var on = false, base = "Tiệm Quen — app quán";
+    document.title = "🔔 " + count + " đơn mới!";
+    titleFlashTimer = setInterval(function () {
+      on = !on;
+      document.title = on ? base : "🔔 " + count + " đơn mới!";
+    }, 1200);
+    setTimeout(function () {
+      if (titleFlashTimer) { clearInterval(titleFlashTimer); titleFlashTimer = null; }
+      document.title = base;
+    }, 15000);
+  }
+
   function initOrdersTab() {
     var has = !!state.slug;
     $("orders-need-slug").hidden = has;
@@ -302,15 +366,20 @@
     var items = order.items
       .map(function (it) { return it.qty + "× " + esc(it.name); }).join(", ");
     var who = order.customer || {};
+    var phoneHtml = who.phone
+      ? '<a class="tq-order-phone" href="tel:' + esc(who.phone) + '">📞 ' + esc(who.phone) + "</a>"
+      : "";
     div.innerHTML =
       '<div class="tq-order-head"><span>#' + esc(order.id.slice(-6)) +
-      " · " + esc((order.created_at || "").slice(11, 16)) + " · batch " +
+      " · " + esc(localTime(order.created_at)) + " · batch " +
       esc(order.batch_id || "direct") + '</span><span class="tq-badge">' +
-      esc(order.status) + "</span></div>" +
+      esc(STATUS_VN[order.status] || order.status) + "</span></div>" +
       '<div class="tq-order-items">' + items +
       ' — <span class="tq-order-total">' + vnd(order.total) + "</span></div>" +
       '<div class="tq-order-head"><span>' + esc(who.name || "") + " · " +
-      esc(who.phone || "") + " · " + esc(who.address || "") + "</span></div>";
+      phoneHtml + " · " + esc(who.address || "") + "</span></div>";
+    var actionRow = document.createElement("div");
+    actionRow.className = "tq-order-actions";
     (ACTIONS[order.status] || []).forEach(function (action) {
       var btn = document.createElement("button");
       btn.className = "tq-btn-mini" + (action.danger ? " is-danger" : "");
@@ -322,8 +391,9 @@
           : postJSON("/orders/" + order.id + "/transition", { to: action.to });
         req.then(refreshOrders).catch(function () { btn.disabled = false; });
       });
-      div.appendChild(btn);
+      actionRow.appendChild(btn);
     });
+    if (actionRow.children.length) div.appendChild(actionRow);
     return div;
   }
 
@@ -337,6 +407,13 @@
           list.innerHTML = '<p class="tq-hint">Chưa có đơn nào — dán tờ rơi đi chờ chi.</p>';
         }
         body.orders.forEach(function (order) { list.appendChild(orderCard(order)); });
+        // Đơn mới so với lần poll trước -> chuông (bỏ qua lần poll đầu).
+        var ids = body.orders.map(function (o) { return o.id; });
+        if (knownOrderIds !== null) {
+          var fresh = ids.filter(function (id) { return knownOrderIds.indexOf(id) === -1; });
+          if (fresh.length) alertNewOrders(fresh.length);
+        }
+        knownOrderIds = ids;
       })
       .catch(function () {});
     api("/api/shops/" + state.slug + "/batch-analytics")
@@ -358,7 +435,116 @@
       .catch(function () {});
   }
 
-  // ========================================================== TAB 3: TỜ RƠI
+  // ============================================================ TAB 3: MENU
+  // Quản lý món SAU khi đã mở tiệm: gạt Còn/Hết + Sắp hết (POST /patch — áp
+  // dụng ngay, không recompose), sửa giá (POST /patch). ARCH §3.2 lunch rush.
+
+  function initMenuTab() {
+    var has = !!state.slug;
+    $("menu-need-slug").hidden = has;
+    $("menu-live").hidden = !has;
+    if (has) refreshMenu();
+  }
+
+  function patchDish(body, onDone, onErr) {
+    postJSON("/api/shops/" + state.slug + "/patch", body)
+      .then(function () { setMsg("menu-msg", "Đã cập nhật ✓", "ok"); onDone && onDone(); })
+      .catch(function (err) {
+        setMsg("menu-msg", "Lỗi: " + err.message, "error");
+        onErr && onErr(err);
+      });
+  }
+
+  function menuDishRow(dishId, dish) {
+    var row = document.createElement("div");
+    row.className = "tq-menu-row" + (dish.sold_out ? " is-soldout" : "");
+
+    var info = document.createElement("div");
+    info.className = "tq-menu-info";
+    info.innerHTML = "<b>" + esc(dish.name) + "</b>" +
+      (dish.hidden ? ' <span class="tq-dish-direct">đang ẩn</span>' : "");
+    row.appendChild(info);
+
+    var priceWrap = document.createElement("div");
+    priceWrap.className = "tq-menu-price";
+    var price = document.createElement("input");
+    price.type = "number"; price.step = "1000"; price.min = "0";
+    price.value = dish.price;
+    price.setAttribute("inputmode", "numeric");
+    var save = document.createElement("button");
+    save.className = "tq-btn-mini tq-menu-save";
+    save.textContent = "Lưu giá";
+    save.hidden = true;
+    price.addEventListener("input", function () {
+      save.hidden = parseInt(price.value, 10) === dish.price;
+    });
+    save.addEventListener("click", function () {
+      var v = parseInt(price.value, 10);
+      if (!(v > 0)) return setMsg("menu-msg", "Giá phải > 0.", "error");
+      save.disabled = true;
+      patchDish({ dish_id: dishId, price: v }, function () {
+        dish.price = v; save.hidden = true; save.disabled = false;
+      }, function () { save.disabled = false; });
+    });
+    priceWrap.appendChild(price);
+    priceWrap.appendChild(save);
+    row.appendChild(priceWrap);
+
+    var toggles = document.createElement("div");
+    toggles.className = "tq-menu-toggles";
+    var soldBtn = document.createElement("button");
+    soldBtn.className = "tq-btn-mini tq-toggle" + (dish.sold_out ? " is-on is-danger" : "");
+    soldBtn.textContent = dish.sold_out ? "HẾT MÓN" : "Còn món";
+    soldBtn.addEventListener("click", function () {
+      soldBtn.disabled = true;
+      patchDish({ dish_id: dishId, sold_out: !dish.sold_out }, function () {
+        dish.sold_out = !dish.sold_out;
+        soldBtn.disabled = false;
+        soldBtn.textContent = dish.sold_out ? "HẾT MÓN" : "Còn món";
+        soldBtn.classList.toggle("is-on", dish.sold_out);
+        soldBtn.classList.toggle("is-danger", dish.sold_out);
+        row.classList.toggle("is-soldout", dish.sold_out);
+      }, function () { soldBtn.disabled = false; });
+    });
+    toggles.appendChild(soldBtn);
+
+    var almostBtn = document.createElement("button");
+    almostBtn.className = "tq-btn-mini tq-toggle tq-toggle-warn" + (dish.almost_out ? " is-on" : "");
+    almostBtn.textContent = "Sắp hết";
+    almostBtn.addEventListener("click", function () {
+      almostBtn.disabled = true;
+      patchDish({ dish_id: dishId, almost_out: !dish.almost_out }, function () {
+        dish.almost_out = !dish.almost_out;
+        almostBtn.disabled = false;
+        almostBtn.classList.toggle("is-on", dish.almost_out);
+      }, function () { almostBtn.disabled = false; });
+    });
+    toggles.appendChild(almostBtn);
+    row.appendChild(toggles);
+    return row;
+  }
+
+  function refreshMenu() {
+    api("/api/shops/" + state.slug + "/menu")
+      .then(function (body) {
+        var menu = body.menu;
+        var box = $("menu-list");
+        box.innerHTML = "";
+        menu.sections.forEach(function (section) {
+          var h = document.createElement("h3");
+          h.className = "tq-menu-section";
+          h.textContent = section.title;
+          box.appendChild(h);
+          section.items.forEach(function (dishId) {
+            var dish = menu.dishes[dishId];
+            if (dish) box.appendChild(menuDishRow(dishId, dish));
+          });
+        });
+      })
+      .catch(function (err) { setMsg("menu-msg", "Không tải được menu: " + err.message, "error"); });
+  }
+
+  // ========================================================== TAB 4: TỜ RƠI
 
   function initFlyersTab() {
     if (!state.slug) {
@@ -394,7 +580,7 @@
           a.download = "";
           a.innerHTML = "⬇ Tờ rơi " + fmt.toUpperCase() +
             ' <span class="tq-flyer-meta">batch ' + esc(f.batch_id) +
-            " · QR → " + esc(f.qr_url) + "</span>";
+            " · QR → " + esc(fullUrl(f.qr_url)) + "</span>";
           box.appendChild(a);
         });
         refreshBatches();
@@ -415,7 +601,10 @@
             "</b> · " + esc(b.format.toUpperCase()) + " · " + esc(b.location_tag) +
             '</span><span class="tq-badge">' + esc((b.created_at || "").slice(0, 10)) +
             "</span></div>" +
-            '<div class="tq-flyer-meta">QR → ' + esc(b.qr_url) + "</div>";
+            '<div class="tq-flyer-meta">QR → ' + esc(fullUrl(b.qr_url)) + "</div>" +
+            (b.pdf_url
+              ? '<a class="tq-flyer-link" href="' + esc(b.pdf_url) + '" download>⬇ Tải lại PDF</a>'
+              : "");
           box.appendChild(div);
         });
       })

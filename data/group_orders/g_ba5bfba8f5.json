@@ -1,0 +1,35 @@
+{
+  "id": "g_ba5bfba8f5",
+  "shop_id": "shop_comtamcoba",
+  "shop_slug": "com-tam-co-ba",
+  "batch_id": "office",
+  "status": "closed",
+  "members": {
+    "Bình": {
+      "items": [
+        {
+          "dish_id": "dish_suon_nuong",
+          "name": "Cơm tấm sườn nướng",
+          "price": 35000,
+          "qty": 1
+        },
+        {
+          "dish_id": "dish_ga_nuong",
+          "name": "Cơm tấm gà nướng mật ong",
+          "price": 38000,
+          "qty": 2
+        }
+      ],
+      "subtotal": 111000
+    }
+  },
+  "order_id": "ord_b08dcadd8142",
+  "created_at": "2026-07-17T02:58:17.252841+00:00",
+  "closed_at": "2026-07-17T03:00:40.406981+00:00",
+  "split": {
+    "Bình": {
+      "amount": 111000,
+      "is_payer": true
+    }
+  }
+}

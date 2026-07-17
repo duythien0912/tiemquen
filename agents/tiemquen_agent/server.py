@@ -560,8 +560,14 @@ def create_app(
         customer = body.get("customer") or {}
         _require_customer(customer)
         try:
+            payer_vietqr = body.get("payer_vietqr")
             result = group_store.close(
-                gid, order_store, body.get("closer_name", ""), customer, variant=body.get("variant")
+                gid,
+                order_store,
+                body.get("closer_name", ""),
+                customer,
+                variant=body.get("variant"),
+                payer_vietqr=payer_vietqr if isinstance(payer_vietqr, dict) else None,
             )
         except GroupOrderNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
@@ -606,9 +612,13 @@ def create_app(
     @app.get("/api/shops/{slug}/batches")
     def list_batches(slug: str) -> dict[str, Any]:
         _resolve_shop(slug)
-        batches = [
-            {**b, "qr_url": qr_url(slug, b["id"])} for b in batch_store.list_by_shop(slug)
-        ]
+        batches = []
+        for b in batch_store.list_by_shop(slug):
+            entry = {**b, "qr_url": qr_url(slug, b["id"])}
+            pdf_name = f"flyer_{b['format']}_{b['id']}.pdf"
+            if (media_dir / slug / pdf_name).is_file():
+                entry["pdf_url"] = f"/media/{slug}/{pdf_name}"
+            batches.append(entry)
         return {"slug": slug, "batches": batches}
 
     @app.delete("/api/shops/{slug}/batches/{batch_id}", status_code=204)
@@ -735,22 +745,33 @@ def create_app(
         html = html.replace("<head>", "<head>\n  " + script, 1)
         return HTMLResponse(html)
 
+    def _shop_public(doc: dict[str, Any]) -> dict[str, Any]:
+        """Non-sensitive shop fields the buyer pages may show (name on the
+        header, phone for 'gọi quán' after ordering)."""
+        shop = doc["shop"]
+        return {k: shop.get(k) for k in ("name", "phone", "hours") if shop.get(k)}
+
     @app.get("/t/{slug}")
     def buyer_page(slug: str) -> HTMLResponse:
-        _resolve_shop(slug)  # 404 fast if the QR points at an unknown/deleted shop
+        doc = _resolve_shop(slug)  # 404 fast if the QR points at an unknown/deleted shop
         return _bootstrapped_html(
             REPO_ROOT / "buyer" / "index.html",
             "__TIEMQUEN__",
-            {"slug": slug, "variants": sorted(VARIANTS)},
+            {"slug": slug, "variants": sorted(VARIANTS), "shop": _shop_public(doc)},
         )
 
     @app.get("/g/{gid}")
     def group_order_page(gid: str) -> HTMLResponse:
         try:
-            group_store.get(gid)
+            g = group_store.get(gid)
         except GroupOrderNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
-        return _bootstrapped_html(REPO_ROOT / "buyer" / "group.html", "__TIEMQUEN_GROUP__", {"gid": gid})
+        shop_doc = storage.get(SHOPS_COLLECTION, g["shop_id"])
+        return _bootstrapped_html(
+            REPO_ROOT / "buyer" / "group.html",
+            "__TIEMQUEN_GROUP__",
+            {"gid": gid, "shop": _shop_public(shop_doc) if shop_doc else {}},
+        )
 
     # ----------------------------------------------------------- static mounts
     # buyer/ + seller/ are committed static sites; data/media holds rehosted

@@ -7,9 +7,12 @@ Nguồn chân lý: [`ARCH.md`](ARCH.md) (nghiệp vụ) và [`docs/ENGINE-SPEC.m
 ## Quickstart
 
 ```bash
-# 1. Python env (3.12+)
-python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
+# 1. Python env (3.12+) — uv standalone build avoids broken Homebrew python bottles
+uv venv .venv --python 3.13
+./.venv/bin/python -m ensurepip
+./.venv/bin/python -m pip install -r requirements.txt
+
+# (fallback if no uv): python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 
 # 2. Run the agent server (dev — no GEMINI_API_KEY needed)
 ./.venv/bin/uvicorn agents.tiemquen_agent.server:app --port 8787
