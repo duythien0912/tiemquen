@@ -263,8 +263,9 @@ def main() -> int:
             slug = r.json()["shop"]["slug"]
 
             r = await client.get(f"/t/{slug}")
-            assert r.status_code == 200 and "renderer.js" in r.text
-            ok(f"GET /t/{slug} -> buyer page HTML references renderer.js")
+            # React+shadcn bundle (web/dist) when built, vanilla renderer.js fallback
+            assert r.status_code == 200 and ("/webapp/" in r.text or "renderer.js" in r.text)
+            ok(f"GET /t/{slug} -> buyer page HTML references the app bundle")
 
             order_body = {
                 "slug": slug,

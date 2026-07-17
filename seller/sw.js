@@ -1,15 +1,9 @@
 /* Tiệm Quen seller PWA — minimal service worker: cache the app SHELL only.
  * API/orders are always network (đơn sống, không cache); shell cache-first
- * with background refresh so the app opens instantly ở sóng yếu. */
-var CACHE = "tq-seller-shell-v3";
-var SHELL = [
-  "/seller/",
-  "/seller/index.html",
-  "/seller/app.js",
-  "/seller/styles.css",
-  "/seller/manifest.json",
-  "/seller/icon.svg",
-];
+ * with background refresh so the app opens instantly ở sóng yếu.
+ * v4: shell = React bundle under /webapp/ (hashed assets) + /seller/ page. */
+var CACHE = "tq-seller-shell-v4";
+var SHELL = ["/seller/", "/seller/manifest.json", "/seller/icon.svg"];
 
 self.addEventListener("install", function (event) {
   event.waitUntil(
@@ -32,6 +26,7 @@ self.addEventListener("fetch", function (event) {
   var isShell = event.request.method === "GET" &&
     url.origin === location.origin &&
     (SHELL.indexOf(url.pathname) !== -1 ||
+      url.pathname.indexOf("/webapp/") === 0 || // hashed vite assets — immutable
       (event.request.mode === "navigate" && url.pathname.indexOf("/seller") === 0));
   if (!isShell) return; // API + media: always network, never stale orders
   event.respondWith(

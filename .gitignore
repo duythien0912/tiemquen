@@ -15,3 +15,5 @@ data/orders/
 data/batches/
 data/e2e_vision/
 data/group_orders/
+web/node_modules/
+web/dist/

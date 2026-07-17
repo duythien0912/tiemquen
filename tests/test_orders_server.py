@@ -44,7 +44,8 @@ def test_buyer_page_returns_html_with_renderer_script(client):
     r = client.get(f"/t/{SLUG}")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
-    assert "renderer.js" in r.text
+    # React+shadcn bundle (web/dist) when built, vanilla renderer.js fallback otherwise
+    assert ("/webapp/" in r.text) or ("renderer.js" in r.text)
     assert SLUG in r.text  # bootstrap payload injected
 
 

@@ -32,8 +32,14 @@ curl -X POST http://127.0.0.1:8787/api/shops/com-tam-co-ba/compose
 # 6. Run the end-to-end smoke (mock mode, no API key)
 ./.venv/bin/python scripts/e2e_smoke.py
 
-# 7. Vision e2e: drive real Chrome through buyer/group/seller journeys,
-#    screenshot every step (needs `playwright` npm package + the server from step 2)
+# 7. Web UI (React 19 + shadcn/ui + OpenUI Lang renderer) — optional but default when built:
+#    /t/{slug}, /g/{gid}, /seller/ serve web/dist when present, else the vanilla fallback.
+cd web && npm install && npm run build && cd ..
+
+# 8. Web e2e — MAIN + EDGE flows, DOM-asserted (needs playwright npm pkg + steps 2+7)
+node scripts/e2e_web.js
+
+# 9. Vision e2e: drive real Chrome through the journeys, screenshot every step
 node scripts/e2e_vision.js            # -> data/e2e_vision/*.png + manifest.json
 #    Review the screenshots visually (or feed them to a vision model).
 ```

@@ -188,7 +188,9 @@ def test_seller_order_list_newest_first(client):
 def test_seller_pwa_shell_served(client):
     r = client.get("/seller/")
     assert r.status_code == 200
-    assert "manifest.json" in r.text and "app.js" in r.text
+    # React bundle (web/dist) or the vanilla fallback shell
+    assert "manifest.json" in r.text
+    assert ("/webapp/" in r.text) or ("app.js" in r.text)
     for path in ("/seller/app.js", "/seller/manifest.json", "/seller/sw.js",
                  "/seller/styles.css", "/seller/icon.svg"):
         assert client.get(path).status_code == 200, path

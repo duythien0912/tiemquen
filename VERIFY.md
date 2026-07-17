@@ -90,6 +90,39 @@ All 3 formats (A5/A4/sticker) rendered to PNG and reviewed visually across
   (Playwright `channel: "chrome"` → `/media/...pdf`) and visually re-verified
   clean on A5 (Cơm Tấm) and A4 (Phở Gà theme); QR re-decoded OK.
 
+## B4. OpenUI Lang + shadcn/ui migration (2026-07-17, evening)
+
+Web UI rebuilt as `web/` — Vite + React 19 + Tailwind v4 + **shadcn/ui**
+(radix-nova preset) rendered through **OpenUI Lang** (`@openuidev/react-lang`
+0.2.8 + `@openuidev/lang-core`):
+
+- **Golden rule intact**: the server still serves the SAME pre-composed A2UI
+  JSON cache (zero LLM, zero backend changes to compose). The client converts
+  A2UI → ElementNode tree → `jsonToOpenUI()` → openui-lang source → `<Renderer>`
+  with a 12-component `defineComponent`/`createLibrary` library where every
+  visual is a shadcn primitive (Card, Button, Badge, Input, Tabs, Table,
+  Switch, Sonner…). Shop theme (compose-derived palette) maps onto the shadcn
+  CSS-variable contract, so all three pilot shops render distinct themes.
+- Buyer, group-order, and seller PWA all rewritten; all prior UX behaviors
+  ported (cart stepper + persistence, recap + resume, double-submit guard,
+  live status poll, group live-poll + payer-VietQR close, seller VN badges,
+  local times, new-order chime + title flash, Menu tab /patch toggles,
+  batch-suffixed flyer PDFs + re-download). Serving is dual-mode:
+  `web/dist` when built, the committed vanilla pages as no-build fallback.
+- Gotcha found: `defineComponent` tags an id onto the Zod props *instance* —
+  two components sharing one schema object silently breaks the parser catalog
+  ("unknown-component"). Each component now gets its own schema.
+
+**E2E: `scripts/e2e_web.js` — 55/55 checks green** (real Chrome/Chromium,
+vi-VN, Asia/Ho_Chi_Minh): MAIN buyer order → recap → resume, group full cycle,
+seller orders/menu/flyers/onboarding; EDGE: double-tap submit = 1 order,
+invalid phone blocked, sold-out mid-session, unknown dish/slug/gid 404/422,
+empty cart, group double-close + late-member 422, unknown-bank close fails
+cleanly (group stays open), illegal order transition 409, duplicate publish
+409 surfaced + delete-and-republish, first flyer batch survives reprint,
+zero unexpected console errors. `pytest` 260 + `e2e_smoke.py` 13/13 still green.
+Vision pass over the new UI (mobile + desktop, 2 themes): clean.
+
 ## C. Go/no-go for the 3-shop pilot
 
 **GO for a supervised dev pilot** (single host, `uvicorn` + `data/` JSON).
