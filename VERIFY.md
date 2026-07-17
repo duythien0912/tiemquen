@@ -61,6 +61,35 @@ distinct themes with no bleed. Two visual defects found and fixed:
   unreadable; panel now clamps left of the card (`infra/pdf_export.py`),
   re-rendered and visually re-verified.
 
+## B3. Flyer PDF vision pass (2026-07-17, later same day)
+
+All 3 formats (A5/A4/sticker) rendered to PNG and reviewed visually across
+2 shops/themes, iterated twice:
+
+- **Added to the layout** (`infra/pdf_export.py`) — flyer was "QR + 3 dishes"
+  only: hours + ĐT/Zalo + address block in the header panel, a white
+  "ĐẶT THẲNG RẺ HƠN APP −N%" ribbon (from `direct_discount_pct`), A4 now lists
+  5 best-sellers (A5 keeps 3), QR card gained a caption strip **under** the QR
+  (`tiemquen.com/t/<slug>` — human-readable, outside the quiet zone) and the
+  batch id moved to a tiny 5pt label outside the card (printer-facing, not
+  buyer-facing).
+- **Vision-caught bugs fixed**: ⏰/📍 emoji rendered as empty boxes (Helvetica
+  has no emoji glyphs → plain text labels); earlier round: best-seller panel
+  slid under the QR card (clamped).
+- **Scannability proven**: QRs decoded from the 300-dpi rendered pages (jsQR)
+  on all 3 formats → exact `https://tiemquen.com/t/<slug>?b=<batch_id>` per
+  shop/batch.
+- Mock-mode hero is a flat gradient placeholder — real Imagen hero unverified
+  (no GEMINI_API_KEY), layout holds either way.
+- **Chrome real-view pass**: user spotted ghost artifacts on the printed A5 —
+  faint shop-name text, a "[mock hero a5]" label, and a misaligned cream box
+  peeking out behind the QR card. All three were watermarks painted INTO the
+  mock hero PNG (`imagen._generate_mock`) showing through the flyer; the mock
+  now renders a clean gradient+noise only (pdf_export owns all text/QR). Hero
+  cache cleared, flyers regenerated, then opened in **real Chrome's PDF viewer**
+  (Playwright `channel: "chrome"` → `/media/...pdf`) and visually re-verified
+  clean on A5 (Cơm Tấm) and A4 (Phở Gà theme); QR re-decoded OK.
+
 ## C. Go/no-go for the 3-shop pilot
 
 **GO for a supervised dev pilot** (single host, `uvicorn` + `data/` JSON).

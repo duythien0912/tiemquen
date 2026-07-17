@@ -181,12 +181,13 @@ def _parse_hex(color: str) -> tuple[int, int, int]:
 
 
 def _generate_mock(shop_doc: dict[str, Any], fmt: str) -> tuple[bytes, list[str]]:
-    """Pillow placeholder: gradient 2 seed + noise (để PNG/PDF có size thật),
-    tên tiệm phía trên, ô trắng safe-zone QR góc dưới phải — cùng layout
-    contract với ảnh real để pdf_export không phân biệt mode."""
+    """Pillow placeholder: gradient 2 seed + noise (để PNG/PDF có size thật).
+    KHÔNG vẽ chữ/ô safe-zone lên mock — pdf_export in đè toàn bộ text + thẻ QR
+    trắng của nó, mọi watermark mock đều lộ ra thành 'chữ ma' trên flyer thật
+    (đã dính: tên tiệm mờ + '[mock hero]' + ô kem lệch sau thẻ QR)."""
     import io
 
-    from PIL import Image, ImageDraw
+    from PIL import Image
 
     seeds = (
         shop_doc.get("shop", {}).get("theme", {}).get("seed_colors")
@@ -206,18 +207,6 @@ def _generate_mock(shop_doc: dict[str, Any], fmt: str) -> tuple[bytes, list[str]
     # photo downstream (PDF size checks, transfer timing) without network.
     noise = Image.effect_noise((w, h), 24).convert("RGB")
     img = Image.blend(img, noise, 0.12)
-
-    draw = ImageDraw.Draw(img)
-    # Safe-zone: ô sáng đồng nhất góc dưới phải (~30% width) cho QR.
-    zone = round(w * 0.30)
-    margin = round(w * 0.04)
-    draw.rectangle(
-        [w - margin - zone, h - margin - zone, w - margin, h - margin],
-        fill=_parse_hex(seeds[1]),
-    )
-    # Shop name text ở phần trên (mock rõ ràng là placeholder, không cần đẹp).
-    draw.text((round(w * 0.08), round(h * 0.10)), shop_doc["shop"]["name"], fill=(255, 255, 255))
-    draw.text((round(w * 0.08), round(h * 0.16)), f"[mock hero {fmt}]", fill=(255, 255, 255))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")

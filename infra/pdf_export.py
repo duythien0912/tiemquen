@@ -188,10 +188,11 @@ def export_flyer(
         c.drawString(margin, H - (18 if not sticker else 14.5) * mm, shop["tagline"])
     if not sticker:
         info_size = 10 if fmt == "a4" else 8.5
+        # Chữ thuần — Helvetica/DejaVu không có glyph emoji (in ra ô vuông).
         contact = " · ".join(
             part for part in (
-                f"⏰ {shop['hours']}" if shop.get("hours") else None,
-                f"ĐT/Zalo: {shop.get('phone') or shop.get('zalo')}"
+                f"Mở cửa {shop['hours']}" if shop.get("hours") else None,
+                f"ĐT/Zalo {shop.get('phone') or shop.get('zalo')}"
                 if shop.get("phone") or shop.get("zalo") else None,
             ) if part
         )
@@ -199,7 +200,7 @@ def export_flyer(
         if contact:
             c.drawString(margin, H - 24 * mm, contact)
         if shop.get("address"):
-            c.drawString(margin, H - 29.5 * mm, f"📍 {shop['address']}")
+            c.drawString(margin, H - 29.5 * mm, shop["address"])
 
     # 2b. Hook giảm giá trực tiếp — lý do cầm tờ rơi thay vì mở app.
     discount = shop.get("direct_discount_pct") or 0
