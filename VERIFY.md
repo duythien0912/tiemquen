@@ -123,6 +123,29 @@ cleanly (group stays open), illegal order transition 409, duplicate publish
 zero unexpected console errors. `pytest` 260 + `e2e_smoke.py` 13/13 still green.
 Vision pass over the new UI (mobile + desktop, 2 themes): clean.
 
+## B5. Source cleanup (2026-07-17, night)
+
+Removed everything the OpenUI/shadcn migration obsoleted, plus repo lint:
+
+- **Deleted**: vanilla `buyer/` (renderer.js/order.js/context_rules.js/pages),
+  `seller/{app.js,styles.css,index.html}` (dir now holds only the PWA assets:
+  manifest/icon/sw), `implementation-notes/`, `.workflows/` run state,
+  `landing/.review/` + `landing/prompt.md`, `mobile/` (empty),
+  `tiem-quen-plan-deck.html`, Vite template leftovers (`web/README.md`,
+  `web/public/*.svg`, `web/src/assets/`), tracked dev data
+  (`data/group_orders/*.json` — now gitignored).
+- **Server**: fallback dual-serving dropped — `/t/{slug}`, `/g/{gid}`,
+  `/seller/` serve `web/dist` only, with a clear 503 ("chạy npm run build")
+  when the bundle is missing. `/buyer` static mount removed.
+- **Kept (all verified imported/used)**: every Python module (`compose/racing`,
+  `infra/{media,publish,vietqr,...}`, import/order-parse agents), `seller/`
+  PWA assets, `landing/index.html`, both e2e suites.
+- `scripts/e2e_vision.js` rewritten for the new UI (data-testid selectors);
+  README layout section + ARCH/ENGINE-SPEC file maps updated to `web/`.
+
+After cleanup: pytest **260**, smoke **13/13**, `e2e_web.js` **55/55**,
+vision run 20 screenshots **zero errors**.
+
 ## C. Go/no-go for the 3-shop pilot
 
 **GO for a supervised dev pilot** (single host, `uvicorn` + `data/` JSON).

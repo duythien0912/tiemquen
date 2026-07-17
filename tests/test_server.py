@@ -65,5 +65,5 @@ def test_list_and_delete_shop(client):
 
 
 def test_static_mounts_serve(client):
-    assert client.get("/buyer/").status_code == 200
-    assert client.get("/seller/").status_code == 200
+    assert client.get("/seller/").status_code == 200  # React shell (web/dist)
+    assert client.get("/seller/manifest.json").status_code == 200

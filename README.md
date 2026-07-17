@@ -47,15 +47,17 @@ node scripts/e2e_vision.js            # -> data/e2e_vision/*.png + manifest.json
 ## Repo layout (ENGINE-SPEC §3)
 
 ```
-agents/tiemquen_agent/   FastAPI agent server (import/interview/storefront/flyer/... in later phases)
-compose/                 A2UI composer pipeline (later phase)
-buyer/                   static order page (renderer + context rules — later phase)
-seller/                  seller web PWA (later phase)
-shared/                  menu_schema.json (SCHEMA LÕI) + order_states.py
-infra/                   storage adapter (local JSON dev / Firestore prod), publish (slug registry)
+agents/tiemquen_agent/   FastAPI agent server (import agent, compose API, orders, flyers)
+compose/                 A2UI composer pipeline (menu chuẩn + theme → A2UI JSON cache)
+web/                     UI duy nhất — Vite + React 19 + shadcn/ui, render qua OpenUI Lang
+                         (A2UI JSON → ElementNode → jsonToOpenUI → <Renderer>); build ra web/dist
+seller/                  PWA assets tĩnh (manifest.json, icon.svg, sw.js) cho app quán
+landing/                 landing page tĩnh
+shared/                  menu_schema.json (SCHEMA LÕI) + order_states.py + menu_format
+infra/                   storage, orders, group_orders, vietqr, qr_batch, pdf_export, notify
 data/fixtures/           demo shop fixture (chuẩn menu format)
 data/                    dev storage (LocalJSONStorage); data/media gitignored
-scripts/e2e_smoke.py     numbered-step smoke test — later phases extend it
+scripts/e2e_smoke.py     API smoke 13 bước · e2e_web.js: 55 check main+edge · e2e_vision.js: chụp vision
 tests/                   pytest suite
 ```
 

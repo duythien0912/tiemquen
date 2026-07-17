@@ -751,20 +751,24 @@ def create_app(
         shop = doc["shop"]
         return {k: shop.get(k) for k in ("name", "phone", "hours") if shop.get(k)}
 
-    # web/dist = built React+shadcn app (OpenUI Lang renderer). When present it
-    # serves the buyer/group/seller pages; the committed vanilla buyer/ +
-    # seller/ dirs remain the no-build fallback (fresh clone without node).
+    # web/dist = built React+shadcn app (OpenUI Lang renderer) — the only UI.
+    # Build it once per checkout: `cd web && npm install && npm run build`.
     web_dist = REPO_ROOT / "web" / "dist"
 
-    def _page_path(new_name: str, legacy: Path) -> Path:
-        candidate = web_dist / new_name
-        return candidate if candidate.is_file() else legacy
+    def _dist_page(name: str) -> Path:
+        path = web_dist / name
+        if not path.is_file():
+            raise HTTPException(
+                status_code=503,
+                detail="web UI chưa build — chạy: cd web && npm install && npm run build",
+            )
+        return path
 
     @app.get("/t/{slug}")
     def buyer_page(slug: str) -> HTMLResponse:
         doc = _resolve_shop(slug)  # 404 fast if the QR points at an unknown/deleted shop
         return _bootstrapped_html(
-            _page_path("buyer.html", REPO_ROOT / "buyer" / "index.html"),
+            _dist_page("buyer.html"),
             "__TIEMQUEN__",
             {"slug": slug, "variants": sorted(VARIANTS), "shop": _shop_public(doc)},
         )
@@ -777,25 +781,24 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(e)) from e
         shop_doc = storage.get(SHOPS_COLLECTION, g["shop_id"])
         return _bootstrapped_html(
-            _page_path("group.html", REPO_ROOT / "buyer" / "group.html"),
+            _dist_page("group.html"),
             "__TIEMQUEN_GROUP__",
             {"gid": gid, "shop": _shop_public(shop_doc) if shop_doc else {}},
         )
 
     @app.get("/seller/")
     def seller_page() -> HTMLResponse:
-        path = _page_path("seller.html", REPO_ROOT / "seller" / "index.html")
-        return HTMLResponse(path.read_text(encoding="utf-8"))
+        return HTMLResponse(_dist_page("seller.html").read_text(encoding="utf-8"))
 
     # ----------------------------------------------------------- static mounts
-    # buyer/ + seller/ are committed static sites; data/media holds rehosted
-    # images (gitignored) — create so the mount never 500s on a fresh clone.
+    # seller/ holds only the PWA assets (manifest, icon, service worker);
+    # data/media holds rehosted images (gitignored) — create so the mount
+    # never 500s on a fresh clone.
 
     media_dir.mkdir(parents=True, exist_ok=True)
     if web_dist.is_dir():
         app.mount("/webapp", StaticFiles(directory=web_dist), name="webapp")
-    app.mount("/buyer", StaticFiles(directory=REPO_ROOT / "buyer", html=True), name="buyer")
-    app.mount("/seller", StaticFiles(directory=REPO_ROOT / "seller", html=True), name="seller")
+    app.mount("/seller", StaticFiles(directory=REPO_ROOT / "seller"), name="seller")
     app.mount("/media", StaticFiles(directory=media_dir), name="media")
 
     return app

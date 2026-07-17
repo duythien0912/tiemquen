@@ -58,9 +58,10 @@ tiemquen/
       tools/           # 1 module / toolable agent, export TOOLS
       imagen.py        # gen ảnh (§6)
   compose/           # composer pipeline: menu chuẩn + theme → A2UI JSON → cache
-  buyer/             # static site: renderer.js (~200 dòng, đi bộ component tree),
-                     # context_rules.js (§5.3 ARCH), order.js (POST /orders)
-  seller/            # web PWA: onboard, dashboard đơn + analytics, tải tờ rơi
+  web/               # UI React 19 + shadcn/ui: buyer + group + seller PWA, render A2UI
+                     # qua OpenUI Lang (jsonToOpenUI -> <Renderer>); context rules (§5.3 ARCH)
+                     # + order flow là hooks client-side
+  seller/            # PWA assets tĩnh: manifest.json, icon.svg, sw.js
   shared/            # menu_schema.json (SCHEMA LÕI — chốt trước), order states
   infra/             # storage adapter (local JSON dev / Firestore prod), notify (FCM+SMS stub),
                      # qr_batch.py, vietqr.py, pdf_export.py, publish.py (per-shop slug)

@@ -251,7 +251,7 @@ Toàn bộ code viết mới, cắt về tối thiểu đúng nhu cầu Tiệm Q
 |---|---|
 | `agents/` — Python agent server | FastAPI: Import (OCR/scrape), Interview, Storefront/Theme, Flyer (Imagen), Order-parse, Reminder — prompt per-feature + tool registry |
 | `compose/` — A2UI composer | Sinh A2UI JSON từ format menu chuẩn + theme; racing N bản chọn 1 (chỉ compose-time) |
-| `buyer/` — trang order | Static HTML/JS renderer đọc A2UI JSON cache; component catalog thu gọn cho e-menu; context rules client/edge |
+| `web/` — trang order | React 19 + shadcn/ui đọc A2UI JSON cache qua OpenUI Lang renderer; component catalog thu gọn cho e-menu; context rules client/edge |
 | `seller/` — web app PWA | Onboard (import + interview), dashboard đơn + flyer analytics, tải tờ rơi, nhận push; 2 persona seller/buyer trên cùng data |
 | `imagen/` — image service | Gemini/Imagen gen hero image + nền tờ rơi; rehost ảnh về storage riêng |
 | Hạ tầng | QR batch registry; VietQR generator + bank deep-link; order store + state machine; notify pipeline (FCM+SMS); publish per-shop slug; PDF export tờ rơi |
