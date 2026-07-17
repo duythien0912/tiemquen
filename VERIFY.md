@@ -37,6 +37,30 @@ Round-2 Playwright re-verification: **19/19 items PASS** (2 regressions found �
 recap clobbered by the background sold-out re-render, "Lưu giá" always visible —
 both fixed and probe-verified). Console clean, zero ≥400 responses.
 
+## B2. Vision e2e (real Chrome + screenshot review, 2026-07-17)
+
+New repeatable suite `scripts/e2e_vision.js` (Playwright driving the **real
+Chrome** channel, vi-VN locale, Asia/Ho_Chi_Minh tz): walks buyer order →
+recap → resume, office variant, full group-order (poll refresh, live subtotal,
+close with payer STK → VietQR buttons), seller Đơn/Menu/Tờ rơi/Mở tiệm, a
+sold-out toggle cross-checked on the buyer page, desktop 1440px, and shops #2/#3
+— 20 numbered screenshots + `manifest.json`, hard-failing on any console/page/
+≥400 error. Run 2: **20/20 captured, zero errors**.
+
+Every screenshot was then reviewed visually (vision pass). Verdicts: menu
+hierarchy/prices/sold-out/sắp-hết clean; stepper + cart bar correct; recap and
+resume correct with live status copy updating; group page shows real shop name,
+per-member breakdowns, live "Phần của bạn", VietQR buttons with exact amounts;
+seller tabs correct (VN badges, local times, HẾT MÓN red + strikethrough,
+batch cards with re-download links, full QR URLs); three shops render three
+distinct themes with no bleed. Two visual defects found and fixed:
+
+- buyer/group pages had no favicon → Chrome's `/favicon.ico` probe 404'd on
+  every load (now `<link rel="icon">` → `/seller/icon.svg`);
+- flyer PDF best-seller panel (0.66·W) slid under the QR white card — prices
+  unreadable; panel now clamps left of the card (`infra/pdf_export.py`),
+  re-rendered and visually re-verified.
+
 ## C. Go/no-go for the 3-shop pilot
 
 **GO for a supervised dev pilot** (single host, `uvicorn` + `data/` JSON).

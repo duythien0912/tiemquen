@@ -174,28 +174,69 @@ def export_flyer(
 
     margin = 8 * mm if not sticker else 5 * mm
 
-    # 2. Shop name + tagline on a translucent panel up top.
+    # 2. Shop name + tagline (+ hours/phone/address on A5/A4) on a translucent
+    # panel up top — "tờ rơi đáng giữ": đủ thông tin liên hệ, không chỉ QR.
     name_size = 30 if fmt == "a4" else (24 if fmt == "a5" else 16)
-    panel_h = (26 if not sticker else 18) * mm
+    panel_h = (34 if not sticker else 18) * mm
     c.setFillColor(Color(0, 0, 0, alpha=0.45))
     c.rect(0, H - panel_h, W, panel_h, stroke=0, fill=1)
     c.setFillColor(white)
     c.setFont(bold, name_size)
-    c.drawString(margin, H - panel_h + (12 if not sticker else 9) * mm, shop["name"])
+    c.drawString(margin, H - (11 if not sticker else 9) * mm, shop["name"])
     if shop.get("tagline"):
         c.setFont(regular, name_size * 0.42)
-        c.drawString(margin, H - panel_h + (5 if not sticker else 3.5) * mm, shop["tagline"])
+        c.drawString(margin, H - (18 if not sticker else 14.5) * mm, shop["tagline"])
+    if not sticker:
+        info_size = 10 if fmt == "a4" else 8.5
+        contact = " · ".join(
+            part for part in (
+                f"⏰ {shop['hours']}" if shop.get("hours") else None,
+                f"ĐT/Zalo: {shop.get('phone') or shop.get('zalo')}"
+                if shop.get("phone") or shop.get("zalo") else None,
+            ) if part
+        )
+        c.setFont(regular, info_size)
+        if contact:
+            c.drawString(margin, H - 24 * mm, contact)
+        if shop.get("address"):
+            c.drawString(margin, H - 29.5 * mm, f"📍 {shop['address']}")
 
-    # 3. QR batch — bottom-right safe zone (white card + quiet zone).
+    # 2b. Hook giảm giá trực tiếp — lý do cầm tờ rơi thay vì mở app.
+    discount = shop.get("direct_discount_pct") or 0
+    if discount and not sticker:
+        ribbon_text = f"ĐẶT THẲNG RẺ HƠN APP −{int(discount)}%"
+        c.setFont(bold, 13 if fmt == "a4" else 11)
+        pad_x = 4 * mm
+        text_w = c.stringWidth(ribbon_text, bold, 13 if fmt == "a4" else 11)
+        ribbon_h = 8 * mm
+        ribbon_y = H - panel_h - ribbon_h - 3 * mm
+        c.setFillColor(white)
+        c.roundRect(margin, ribbon_y, text_w + 2 * pad_x, ribbon_h, 2 * mm, stroke=0, fill=1)
+        c.setFillColor(black)
+        c.drawString(margin + pad_x, ribbon_y + 2.6 * mm, ribbon_text)
+
+    # 3. QR batch — bottom-right safe zone: white card with a caption strip
+    # UNDER the QR (never inside its quiet zone — scanners need it clean).
     qr_side = (0.30 * W) if not sticker else (0.34 * W)
-    qr_x, qr_y = W - margin - qr_side, margin
+    caption_h = (5 if not sticker else 4) * mm
     pad = 1.5 * mm
+    qr_x = W - margin - qr_side
+    qr_y = margin + caption_h
     c.setFillColor(white)
-    c.roundRect(qr_x - pad, qr_y - pad, qr_side + 2 * pad, qr_side + 2 * pad, 2 * mm, stroke=0, fill=1)
+    c.roundRect(
+        qr_x - pad, margin - pad,
+        qr_side + 2 * pad, qr_side + caption_h + 2 * pad,
+        2 * mm, stroke=0, fill=1,
+    )
     c.drawImage(_qr_image(qr_url(slug, batch_id, base_url)), qr_x, qr_y, qr_side, qr_side)
+    # Caption khách đọc được (không phải mã batch): địa chỉ trang order.
     c.setFillColor(black)
-    c.setFont(regular, 6 if sticker else 7)
-    c.drawCentredString(qr_x + qr_side / 2, qr_y + 1.2 * mm, batch_id)
+    c.setFont(bold, 6.5 if sticker else 8)
+    c.drawCentredString(qr_x + qr_side / 2, margin + 0.8 * mm, f"tiemquen.com/t/{slug}")
+    # Batch id in NHỎ, nhạt, ngoài thẻ — người in đối chiếu batch, khách khỏi để ý.
+    c.setFillColor(Color(1, 1, 1, alpha=0.7))
+    c.setFont(regular, 5)
+    c.drawRightString(W - margin, margin - pad - 2.2 * mm, batch_id)
 
     # 4. Big CTA "THÈM? QUÉT." next to the QR (points the eye at it).
     cta_size = 34 if fmt == "a4" else (26 if fmt == "a5" else 15)
@@ -207,13 +248,16 @@ def export_flyer(
     c.drawString(margin, cta_y - 6 * mm, "Quét mã — đặt 3 chạm, không cần app")
 
     # 5. 3 best-sellers + giá (panel mờ giữa/dưới, trên CTA).
-    dishes = best_sellers(shop_doc["menu"])
+    dishes = best_sellers(shop_doc["menu"], n=5 if fmt == "a4" else 3)
     if dishes and not sticker:
         line_h = 9 * mm if fmt == "a4" else 7.5 * mm
         list_h = line_h * len(dishes) + 6 * mm
         list_y = cta_y + 14 * mm
+        # Panel must stop LEFT of the QR card (card spans from qr_x - pad to
+        # the right edge) — prices sliding under the white card are unreadable.
+        panel_w = min(W * 0.66, qr_x - pad - 2 * mm)
         c.setFillColor(Color(0, 0, 0, alpha=0.45))
-        c.rect(0, list_y - 3 * mm, W * 0.66, list_h, stroke=0, fill=1)
+        c.rect(0, list_y - 3 * mm, panel_w, list_h, stroke=0, fill=1)
         c.setFillColor(white)
         dish_size = 13 if fmt == "a4" else 11
         for i, dish in enumerate(reversed(dishes)):
@@ -221,7 +265,7 @@ def export_flyer(
             c.setFont(regular, dish_size)
             c.drawString(margin, y, dish["name"])
             c.setFont(bold, dish_size)
-            c.drawRightString(W * 0.66 - 4 * mm, y, _fmt_price(dish["price"]))
+            c.drawRightString(panel_w - 4 * mm, y, _fmt_price(dish["price"]))
 
     c.showPage()
     c.save()
